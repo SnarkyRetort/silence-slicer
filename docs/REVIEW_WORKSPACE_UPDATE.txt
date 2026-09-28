@@ -1,0 +1,12 @@
+Silence Cutter — Compact Review Workspace Update
+
+- Review & Export now uses a wide two-column workspace.
+- Embedded video preview reduced to ~480px wide (720px expanded).
+- Ranked moments appear beside the preview instead of forcing vertical scrolling.
+- Selected moment shows timestamps, duration, status, and full transcript text.
+- Inline notes box with Save Notes.
+- KEEP / MAYBE / TRASH / UI COVER triage directly from Review & Export.
+- UI COVER is now a persisted footage-analysis status for dialogue worth keeping when CHIM/UI needs B-roll patched over it.
+- Footage Analysis also exposes the UI COVER status button.
+- Timeline/markers remain full-width underneath the review workspace.
+- Existing Whisper transcription, CUDA-safe fallback, dark-table styling, wide Cut & Analyze layout, sequence builder, and export features are preserved.

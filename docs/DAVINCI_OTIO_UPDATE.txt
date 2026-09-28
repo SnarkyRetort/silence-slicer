@@ -1,0 +1,30 @@
+Silence Slicer - DaVinci Resolve OTIO Update
+============================================
+
+What changed
+------------
+- Added "Export Resolve OTIO..." to Sequence Builder.
+- OTIO export creates mirrored V1 + A1 tracks in the exact Sequence Builder order.
+- OTIO references original media files; it does not re-render or transcode them.
+- Sequence Builder import now brings in both KEEP and UI COVER moments.
+- UI COVER clips are visibly prefixed "[UI COVER]" in the Resolve timeline.
+- Diary footage can be analyzed separately, marked KEEP, imported as another footage index,
+  and moved anywhere among gameplay moments before export.
+- Existing Resolve FCPXML export remains available as a fallback.
+- OTIO export checks that every source media file still exists before writing the timeline.
+- The written OTIO is structurally verified before the app reports success.
+
+Workflow
+--------
+1. Mark gameplay moments KEEP or UI COVER.
+2. For diary footage, load/transcribe/analyze it separately and mark the diary moments KEEP.
+3. Open Sequence Builder.
+4. Use "Import KEEP / UI COVER..." and select the gameplay and diary footage index JSON files.
+5. Use Move Up / Move Down to weave the diary clips into the gameplay order you want.
+6. Choose your timeline FPS to match the footage/project.
+7. Click "Export Resolve OTIO...".
+8. In DaVinci Resolve use File -> Import -> Timeline and select the .otio file.
+9. Keep the original media files in their current locations so Resolve can link them.
+
+The OTIO is a hard-cut rough assembly by design. Add transitions, B-roll, titles, music,
+and final polish in Resolve.

@@ -1,0 +1,11 @@
+Silence Slicer - PCM chunk audio hardening
+
+Changes:
+- Temporary chunk files remain MKV.
+- Temporary audio changed from FLAC to PCM signed 16-bit little-endian.
+- Temporary PCM is normalized to 48 kHz stereo for predictable chunk compatibility.
+- Final output behavior is unchanged: MP4/MKV selection is based on the chosen output filename, and final audio is encoded by the existing join stage.
+- Existing tolerant damaged-input retry remains in place and now also uses PCM for its temporary chunk.
+
+Why:
+Some recordings caused FFmpeg's FLAC encoder to fail with "invalid block size" during chunk rendering. PCM avoids that encoder path entirely while remaining lossless for the temporary stage.

@@ -1,0 +1,13 @@
+Silence Cutter - Whisper Speed/Reliability Update
+
+Changes:
+- Pre-decodes long MP4/AAC footage to temporary mono 16 kHz PCM WAV before transcription.
+- Uses faster-whisper GPU batching when available.
+- Uses beam_size=1 and disables previous-text conditioning for substantially faster long-form transcription.
+- Transparently falls back from GPU batch -> GPU normal -> optimized CPU.
+- Temporary WAV is automatically removed after transcription.
+- Matching SRT and automatic Footage Map loading are unchanged.
+
+Optional model override:
+  set SILENCE_CUTTER_WHISPER_MODEL=small.en
+Use small.en if you want more accuracy at the cost of speed. Default remains base.en for speed.

@@ -1,0 +1,15 @@
+Silence Slicer — Story Crossrefs Update
+
+Adds a new Story Crossrefs tab that connects diary-roll memories to footage moments.
+
+Workflow:
+1. Import the diary-roll CSV.
+2. Add one or more footage-analysis index JSON/CSV files, use the current Footage Analysis results, or scan the current project's analysis folder.
+3. Optionally filter the diary roll by character/event keyword.
+4. Click Cross-Reference.
+5. Review suggested diary ↔ footage links, preview either side, and send related footage directly to Sequence Builder.
+6. Export the cross-reference map as CSV or JSON.
+
+Matching is local and dependency-free. It uses distinctive shared terms, character overlap, callback words, and matching phrase fragments. Results are suggestions for review rather than automatic canon decisions.
+
+The supplied diary-roll CSV format is supported directly, including start/end timestamps, title, source_video, characters, tags, and transcript_excerpt columns.

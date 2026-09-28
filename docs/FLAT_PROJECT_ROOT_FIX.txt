@@ -1,0 +1,30 @@
+Silence Slicer — Flat Project Root Fix
+
+What this fixes:
+- Prevents accidental ProjectName/ProjectName nesting for new projects.
+- If you choose a folder that already has the same name as the project,
+  Silence Slicer uses that folder directly as the project root.
+- Existing duplicate-nested projects are flattened automatically when reopened,
+  but only when it is safe and there are no filename/folder collisions.
+- Absolute paths pointing inside the old nested project are remapped.
+- Linked raw source files outside the project are left where they are.
+
+Desired structure:
+  ProjectName/
+    project.json
+    source/
+    processed/
+    transcript/
+    analysis/
+    sequences/
+    exports/
+    narration/
+
+Install:
+1. Close Silence Slicer.
+2. Extract this ZIP.
+3. Copy the .py files into C:\\ffmpeg and replace the existing files.
+4. Reopen Silence Slicer.
+5. Reopening a safely double-nested project will flatten it automatically.
+
+This update is based on the Project-Owned Routing + Footage Preview Parity build.

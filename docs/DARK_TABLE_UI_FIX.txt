@@ -1,0 +1,7 @@
+Silence Cutter — Dark Table UI Fix
+
+- Transcript and Ranked Moments tables now use the application's dark field background.
+- Table text is bright and readable instead of light text on a white/gray background.
+- Selected rows use the purple accent with white text.
+- Treeview headings stay dark and readable.
+- Includes all prior Whisper transcription, speed/reliability, and CUDA fallback updates from the source build.
