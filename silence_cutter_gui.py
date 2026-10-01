@@ -318,9 +318,9 @@ class SilenceCutterApp(tk.Tk):
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
         self.output_dir_var = tk.StringVar(value=cfg.get("output_dir", str(Path.home() / "Videos")))
-        self.cut_strength = tk.StringVar(value=cfg.get("cut_strength", "High"))
+        self.cut_strength = tk.StringVar(value="Low")
 
-        self.threshold_var = tk.StringVar(value=str(cfg.get("threshold", -25.0)))
+        self.threshold_var = tk.StringVar(value="-50.0")
         self.min_silence_var = tk.StringVar(value=str(cfg.get("min_silence", 1.0)))
         self.padding_var = tk.StringVar(value=str(cfg.get("padding", 0.18)))
         self.min_clip_var = tk.StringVar(value=str(cfg.get("min_clip", 0.10)))
