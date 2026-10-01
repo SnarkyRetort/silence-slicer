@@ -860,7 +860,14 @@ class SilenceCutterApp(tk.Tk):
         if processed and processed.exists():
             self.last_output = processed
             self.footage_video_var.set(str(processed))
-        self.footage_srt_var.set(str(srt) if srt and srt.exists() else "")
+        if srt and srt.exists():
+            self.footage_srt_var.set(str(srt))
+        else:
+            # If this project/version has no registered SRT, keep the user's
+            # previously browsed matching SRT instead of blanking it on startup.
+            saved_srt = Path(self.footage_srt_var.get()).expanduser() if self.footage_srt_var.get().strip() else None
+            if saved_srt is not None and not saved_srt.is_file():
+                self.footage_srt_var.set("")
         if index:
             self.footage_index_path = index
         if sequence:
@@ -1197,7 +1204,14 @@ class SilenceCutterApp(tk.Tk):
         if video:
             self.footage_video_var.set(str(video))
             self.footage_index_path = self.project.footage_index_path(video)
-        self.footage_srt_var.set(str(srt) if srt and srt.exists() else "")
+        if srt and srt.exists():
+            self.footage_srt_var.set(str(srt))
+        else:
+            # If this project/version has no registered SRT, keep the user's
+            # previously browsed matching SRT instead of blanking it on startup.
+            saved_srt = Path(self.footage_srt_var.get()).expanduser() if self.footage_srt_var.get().strip() else None
+            if saved_srt is not None and not saved_srt.is_file():
+                self.footage_srt_var.set("")
         if update_status:
             self.footage_status_var.set(f"Project version selected: {label}")
 
