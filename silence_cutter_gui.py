@@ -1994,14 +1994,86 @@ class SilenceCutterApp(tk.Tk):
             style="Muted.TLabel",
         ).pack(anchor="w", pady=(8, 2))
 
-        table_box = ttk.LabelFrame(outer, text="Sequence Order")
-        table_box.pack(fill="both", expand=True, pady=(8, 0))
+        # Compact Sequence Builder workspace: controls live in a two-column rail
+        # on the left, while the sequence table gets the rest of the window.
+        # This mirrors Footage Analysis and keeps everything visible at 1280x720.
+        sequence_workspace = ttk.Frame(outer)
+        sequence_workspace.pack(fill="both", expand=True, pady=(8, 0))
+
+        action_rail = ttk.LabelFrame(sequence_workspace, text="Sequence Actions")
+        action_rail.pack(side="left", fill="y", padx=(0, 10))
+        action_rail.columnconfigure(0, weight=1)
+        action_rail.columnconfigure(1, weight=1)
+
+        self.sequence_summary_var = tk.StringVar(value="0 clips • 00:00")
+        ttk.Label(
+            action_rail, textvariable=self.sequence_summary_var, style="Big.TLabel"
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 6))
+
+        seq_btn = {"padx": 3, "pady": 2, "sticky": "ew"}
+
+        ttk.Button(action_rail, text="▲ Move Up", command=lambda: self._sequence_move(-1)).grid(row=1, column=0, **seq_btn)
+        ttk.Button(action_rail, text="▼ Move Down", command=lambda: self._sequence_move(1)).grid(row=1, column=1, **seq_btn)
+
+        ttk.Button(action_rail, text="▶ Preview", command=self._sequence_preview_selected).grid(row=2, column=0, **seq_btn)
+        ttk.Button(action_rail, text="▶ Play All", command=self._sequence_play_assembly).grid(row=2, column=1, **seq_btn)
+
+        ttk.Button(action_rail, text="Remove", command=self._sequence_remove_selected).grid(row=3, column=0, **seq_btn)
+        ttk.Button(action_rail, text="Clear", command=self._sequence_clear).grid(row=3, column=1, **seq_btn)
+
+        ttk.Separator(action_rail, orient="horizontal").grid(
+            row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=4
+        )
+
+        ttk.Button(
+            action_rail, text="Resolve Package", command=self._sequence_export_fcpxml
+        ).grid(row=5, column=0, **seq_btn)
+
+        self.sequence_render_btn = ttk.Button(
+            action_rail, text="Rough MP4", command=self._sequence_render_clicked
+        )
+        self.sequence_render_btn.grid(row=5, column=1, **seq_btn)
+
+        ttk.Button(
+            action_rail, text="Edit CSV", command=lambda: self._sequence_export_list("csv")
+        ).grid(row=6, column=0, **seq_btn)
+
+        ttk.Button(
+            action_rail, text="Edit TXT", command=lambda: self._sequence_export_list("txt")
+        ).grid(row=6, column=1, **seq_btn)
+
+        self.sequence_cancel_btn = ttk.Button(
+            action_rail, text="Cancel Render", command=self._sequence_cancel_render, state="disabled"
+        )
+        self.sequence_cancel_btn.grid(row=7, column=0, **seq_btn)
+
+        ttk.Button(
+            action_rail, text="Open Folder", command=self._sequence_open_last_folder
+        ).grid(row=7, column=1, **seq_btn)
+
+        self.sequence_progress = ttk.Progressbar(action_rail, mode="determinate", maximum=100)
+        self.sequence_progress.grid(row=8, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 2))
+
+        ttk.Label(
+            action_rail, textvariable=self.sequence_progress_var, style="Muted.TLabel"
+        ).grid(row=9, column=0, columnspan=2, sticky="e", padx=4)
+
+        ttk.Label(
+            action_rail,
+            textvariable=self.sequence_status_var,
+            style="Muted.TLabel",
+            wraplength=190,
+            justify="left",
+        ).grid(row=10, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 4))
+
+        table_box = ttk.LabelFrame(sequence_workspace, text="Sequence Order")
+        table_box.pack(side="left", fill="both", expand=True)
         table_frame = ttk.Frame(table_box)
         table_frame.pack(fill="both", expand=True, padx=8, pady=8)
         self.sequence_tree = ttk.Treeview(
             table_frame,
             columns=("order", "timeline", "source", "duration", "characters", "title"),
-            show="headings", selectmode="browse", height=16,
+            show="headings", selectmode="browse", height=12,
         )
         specs = (
             ("order", "#", 42, False),
@@ -2020,34 +2092,6 @@ class SilenceCutterApp(tk.Tk):
         seq_scroll.pack(side="right", fill="y")
         self.sequence_tree.configure(yscrollcommand=seq_scroll.set)
 
-        edit_row = ttk.Frame(outer)
-        edit_row.pack(fill="x", pady=(8, 0))
-        ttk.Button(edit_row, text="▲ Move Up", command=lambda: self._sequence_move(-1)).pack(side="left")
-        ttk.Button(edit_row, text="▼ Move Down", command=lambda: self._sequence_move(1)).pack(side="left", padx=(8, 0))
-        ttk.Button(edit_row, text="▶ Preview Selected", command=self._sequence_preview_selected).pack(side="left", padx=(8, 0))
-        ttk.Button(edit_row, text="▶ Play Assembly", command=self._sequence_play_assembly).pack(side="left", padx=(8, 0))
-        ttk.Button(edit_row, text="Remove", command=self._sequence_remove_selected).pack(side="left", padx=(8, 0))
-        ttk.Button(edit_row, text="Clear", command=self._sequence_clear).pack(side="left", padx=(8, 0))
-        self.sequence_summary_var = tk.StringVar(value="0 clips • 00:00")
-        ttk.Label(edit_row, textvariable=self.sequence_summary_var, style="Big.TLabel").pack(side="right")
-
-        exports = ttk.LabelFrame(outer, text="Send It Downstream")
-        exports.pack(fill="x", pady=(10, 0))
-        row = ttk.Frame(exports)
-        row.pack(fill="x", padx=8, pady=8)
-        ttk.Button(row, text="Export Resolve Package…", command=self._sequence_export_fcpxml).pack(side="left")
-        ttk.Button(row, text="Export Edit CSV…", command=lambda: self._sequence_export_list("csv")).pack(side="left", padx=(8, 0))
-        ttk.Button(row, text="Export Edit TXT…", command=lambda: self._sequence_export_list("txt")).pack(side="left", padx=(8, 0))
-        self.sequence_render_btn = ttk.Button(row, text="Render Rough Assembly…", command=self._sequence_render_clicked)
-        self.sequence_render_btn.pack(side="left", padx=(16, 0))
-        self.sequence_cancel_btn = ttk.Button(row, text="Cancel Render", command=self._sequence_cancel_render, state="disabled")
-        self.sequence_cancel_btn.pack(side="left", padx=(8, 0))
-        ttk.Button(row, text="Open Last Folder", command=self._sequence_open_last_folder).pack(side="right")
-
-        self.sequence_progress = ttk.Progressbar(exports, mode="determinate", maximum=100)
-        self.sequence_progress.pack(fill="x", padx=8, pady=(0, 4))
-        ttk.Label(exports, textvariable=self.sequence_progress_var).pack(anchor="e", padx=8)
-        ttk.Label(exports, textvariable=self.sequence_status_var, style="Muted.TLabel").pack(anchor="w", padx=8, pady=(2, 8))
         self.sequence_last_output = None
         self.sequence_last_assembly = None
 
