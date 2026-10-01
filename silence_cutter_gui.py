@@ -1040,15 +1040,22 @@ class SilenceCutterApp(tk.Tk):
         action_rail.columnconfigure(0, weight=1)
         action_rail.columnconfigure(1, weight=1)
 
-        panes = ttk.Panedwindow(review_workspace, orient="vertical")
-        panes.pack(side="left", fill="both", expand=True)
+        # Right side uses a grid instead of a Panedwindow so the Selected
+        # Moment panel can never collapse off-screen at the default window size.
+        content_stack = ttk.Frame(review_workspace)
+        content_stack.pack(side="left", fill="both", expand=True)
+        content_stack.columnconfigure(0, weight=1)
+        content_stack.rowconfigure(0, weight=1)
+        content_stack.rowconfigure(1, weight=2)
+        content_stack.rowconfigure(2, weight=0)
 
-        transcript_box = ttk.LabelFrame(panes, text="Transcript")
-        results_box = ttk.LabelFrame(panes, text="Ranked Moments")
-        detail = ttk.LabelFrame(panes, text="Selected Moment")
-        panes.add(transcript_box, weight=1)
-        panes.add(results_box, weight=2)
-        panes.add(detail, weight=1)
+        transcript_box = ttk.LabelFrame(content_stack, text="Transcript")
+        results_box = ttk.LabelFrame(content_stack, text="Ranked Moments")
+        detail = ttk.LabelFrame(content_stack, text="Selected Moment")
+
+        transcript_box.grid(row=0, column=0, sticky="nsew")
+        results_box.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
+        detail.grid(row=2, column=0, sticky="ew", pady=(8, 0))
 
         search_row = ttk.Frame(transcript_box)
         search_row.pack(fill="x", padx=8, pady=(8, 4))
@@ -1112,7 +1119,7 @@ class SilenceCutterApp(tk.Tk):
         self.footage_result_tree.configure(yscrollcommand=res_scroll.set)
 
         self.footage_detail_text = tk.Text(
-            detail, height=3, wrap="word",
+            detail, height=2, wrap="word",
             background=self.field, foreground=self.fg, insertbackground=self.fg,
             selectbackground="#4a4a4a", selectforeground=self.fg, relief="flat",
         )
@@ -1138,7 +1145,7 @@ class SilenceCutterApp(tk.Tk):
         ttk.Button(action_rail, text="+ KEEP", command=self._sequence_add_keep_moments).grid(row=3, column=0, **btn_pad)
         ttk.Button(action_rail, text="All Dialogue", command=self._sequence_add_all_dialogue).grid(row=3, column=1, **btn_pad)
 
-        ttk.Separator(action_rail, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=6)
+        ttk.Separator(action_rail, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=3)
 
         ttk.Button(action_rail, text="Export CSV", command=lambda: self._export_footage_moments("csv")).grid(row=5, column=0, **btn_pad)
         ttk.Button(action_rail, text="Export TXT", command=lambda: self._export_footage_moments("txt")).grid(row=5, column=1, **btn_pad)
