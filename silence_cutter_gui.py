@@ -2488,10 +2488,52 @@ class SilenceCutterApp(tk.Tk):
                     + "\n".join(missing[:10])
                 )
 
+            # Build a genuinely portable Resolve package.  Copy each unique
+            # source clip into a media folder beside the interchange files, then
+            # export the FCPXML/EDL against those packaged copies.  Resolve no
+            # longer has to chase media on another drive or through a stale path.
+            safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", self.sequence_name_var.get()).strip("_") or "sequence"
+            package_dir = path.parent / f"{safe_name}_Resolve_Package"
+            media_dir = package_dir / "media"
+            media_dir.mkdir(parents=True, exist_ok=True)
+
+            packaged_items = []
+            source_map = {}
+            used_names = set()
+            for item in self.sequence_items:
+                source = Path(item.source_video).resolve()
+                key = str(source).lower()
+                if key not in source_map:
+                    candidate = source.name
+                    if candidate.lower() in used_names:
+                        candidate = f"{source.stem}_{hashlib.sha1(str(source).encode('utf-8')).hexdigest()[:8]}{source.suffix}"
+                    used_names.add(candidate.lower())
+                    packaged = media_dir / candidate
+                    if not packaged.is_file() or packaged.stat().st_size != source.stat().st_size:
+                        shutil.copy2(source, packaged)
+                    source_map[key] = packaged
+
+                packaged = source_map[key]
+                packaged_items.append(sb.SequenceItem(
+                    id=item.id,
+                    source_video=str(packaged),
+                    start=item.start,
+                    end=item.end,
+                    title=item.title,
+                    characters=list(item.characters),
+                    category=item.category,
+                    chapter=item.chapter,
+                    notes=item.notes,
+                    tags=list(item.tags),
+                    source_index=item.source_index,
+                    source_moment_id=item.source_moment_id,
+                ))
+
+            package_xml = package_dir / f"{safe_name}.fcpxml"
             width, height = self._sequence_output_geometry()
             out = sb.export_fcpxml(
-                path,
-                self.sequence_items,
+                package_xml,
+                packaged_items,
                 self.sequence_name_var.get(),
                 fps=self.sequence_fps_var.get(),
                 width=width,
@@ -2507,29 +2549,38 @@ class SilenceCutterApp(tk.Tk):
                 raise RuntimeError("FCPXML export produced an empty or incomplete file.")
 
             # Always create a CMX3600 EDL beside the XML as a conservative
-            # Resolve fallback. Same sequence, same source ranges.
-            edl_path = path.with_suffix(".edl")
+            # Resolve fallback. Same sequence, same packaged source media.
+            edl_path = package_xml.with_suffix(".edl")
             sb.export_edl(
                 edl_path,
-                self.sequence_items,
+                packaged_items,
                 self.sequence_name_var.get(),
                 fps=self.sequence_fps_var.get(),
             )
             if not edl_path.is_file() or edl_path.stat().st_size < 100:
                 raise RuntimeError("EDL fallback export produced an empty file.")
 
+            manifest_path = package_dir / "SOURCE_PATHS.txt"
+            manifest_lines = ["Resolve Package Source Map", ""]
+            for original_key, packaged in source_map.items():
+                manifest_lines.append(f"ORIGINAL: {original_key}")
+                manifest_lines.append(f"PACKAGED: {packaged}")
+                manifest_lines.append("")
+            manifest_path.write_text("\n".join(manifest_lines), encoding="utf-8")
+
             self.sequence_last_output = Path(out)
             self.sequence_status_var.set(
-                f"Resolve package exported: {Path(out).name} + {edl_path.name}"
+                f"Portable Resolve package exported: {package_dir.name}"
             )
             messagebox.showinfo(
                 APP_TITLE,
-                "Resolve export complete.\n\n"
+                "Portable Resolve package complete.\n\n"
+                f"Package folder:\n{package_dir}\n\n"
                 f"FCPXML:\n{Path(out)}\n\n"
                 f"EDL fallback:\n{edl_path}\n\n"
-                "Try the FCPXML first with File → Import → Timeline. "
-                "If Resolve rejects or crashes on it, import the EDL instead. "
-                "Keep the source video in its current location."
+                f"Packaged media:\n{media_dir}\n\n"
+                "Import the FCPXML from THIS package folder. "
+                "The XML now points to the media copy inside the package."
             )
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc))
