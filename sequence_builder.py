@@ -217,42 +217,22 @@ def export_txt(path: str | Path, items: Sequence[SequenceItem], name: str = "Seq
 
 def _file_uri(path: str | Path) -> str:
     p = Path(path).resolve()
-    # Resolve/FCPXML expects a file URL.  quote preserves slashes while escaping spaces.
-    raw = p.as_posix()
-    if os.name == "nt" and not raw.startswith("/"):
-        raw = "/" + raw
-    return "file://" + quote(raw, safe="/:~!def _file_uri(path: str | Path) -> str:
-    p = Path(path).resolve()
-    # Resolve/FCPXML expects a file URL.  quote preserves slashes while escaping spaces.
+    # Resolve/FCPXML expects a file URL. quote preserves slashes while escaping spaces.
     raw = p.as_posix()
     if os.name == "nt" and not raw.startswith("/"):
         raw = "/" + raw
     return "file://" + quote(raw, safe="/:~!$&'()*+,;=@")
-'()*+,;=@")
 
 
 def _fcpxml_media_uri(source: str | Path, xml_dir: str | Path) -> str:
-    """Prefer a relative media URL when the source lives beside the FCPXML.
-
-    A portable Resolve package keeps media under ./media/.  Using a relative URL
-    makes the package independent of the drive letter and avoids Resolve having
-    to interpret a Windows absolute file:// URL.
-    """
+    """Prefer a relative media URL when the source lives beside the FCPXML."""
     source_path = Path(source).resolve()
     xml_root = Path(xml_dir).resolve()
     try:
         rel = source_path.relative_to(xml_root)
-        return "./" + quote(rel.as_posix(), safe="/:~!def _file_uri(path: str | Path) -> str:
-    p = Path(path).resolve()
-    # Resolve/FCPXML expects a file URL.  quote preserves slashes while escaping spaces.
-    raw = p.as_posix()
-    if os.name == "nt" and not raw.startswith("/"):
-        raw = "/" + raw
-    return "file://" + quote(raw, safe="/:~!$&'()*+,;=@")
-'()*+,;=@")
+        return "./" + quote(rel.as_posix(), safe="/:~!$&'()*+,;=@")
     except ValueError:
         return _file_uri(source_path)
-
 
 # Frame rates the FCPXML export and rough render accept. NTSC rates are exact
 # rationals so long timelines don't drift (29.97 is really 30000/1001).
