@@ -1243,6 +1243,26 @@ class SilenceCutterApp(tk.Tk):
         )
         if path:
             self.footage_srt_var.set(path)
+
+            # When working inside a project, try to pair a browsed transcript
+            # with the processed variant named in the SRT filename.  Example:
+            # Foo_LOW.srt should select the registered LOW video instead of
+            # silently leaving the project on ORIGINAL.
+            if self.project:
+                srt_stem = Path(path).stem.upper()
+                variants = self.project.processed_variants()
+                matches = [
+                    label for label in variants
+                    if re.search(rf"(?:^|[_\-\s]){re.escape(label.upper())}(?:$|[_\-\s])", srt_stem)
+                ]
+                if len(matches) == 1:
+                    label = matches[0]
+                    video = variants.get(label)
+                    if video and Path(video).is_file():
+                        self.footage_version_var.set(label)
+                        self.footage_video_var.set(str(video))
+                        self.footage_index_path = self.project.footage_index_path(video)
+
             self._save_preferences()
 
     def _load_footage_map(self):
@@ -1253,6 +1273,28 @@ class SilenceCutterApp(tk.Tk):
                 raise RuntimeError("Choose the cleaned video first.")
             if not srt.is_file():
                 raise RuntimeError("Choose the matching SRT file first.")
+
+            # Refuse the common project-version mismatch that can create a
+            # perfectly valid-looking timeline against the wrong source media.
+            if self.project:
+                selected = self.footage_version_var.get().strip().upper()
+                stem = srt.stem.upper()
+                variant_names = [v.upper() for v in self.project.processed_variants().keys()]
+                named = [
+                    v for v in variant_names
+                    if re.search(rf"(?:^|[_\-\s]){re.escape(v)}(?:$|[_\-\s])", stem)
+                ]
+                if selected == "ORIGINAL" and named:
+                    raise RuntimeError(
+                        f"This transcript appears to be for the {named[0]} processed video, "
+                        "but Project version is ORIGINAL. Select the matching processed "
+                        "version before loading the footage map."
+                    )
+                if selected not in ("", "ORIGINAL") and named and selected not in named:
+                    raise RuntimeError(
+                        f"This transcript appears to be for {named[0]}, but Project version "
+                        f"is {selected}. Choose the matching video/SRT pair."
+                    )
 
             entries = fa.parse_srt(srt)
             duration, has_video, _has_audio = self._probe(video)
