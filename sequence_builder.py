@@ -344,13 +344,6 @@ def export_fcpxml(
         raise SequenceError("The sequence is empty.")
     fps = parse_fps(fps)
 
-    if ffprobe and (width, height) == (1920, 1080):
-        try:
-            w, h, _ = probe_geometry(ffprobe, items[0].source_video)
-            width, height = w, h
-        except Exception:
-            pass
-
     path = Path(path)
     root = ET.Element("fcpxml", version="1.10")
     resources = ET.SubElement(root, "resources")
