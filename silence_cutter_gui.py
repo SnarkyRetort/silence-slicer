@@ -457,17 +457,17 @@ class SilenceCutterApp(tk.Tk):
         # High-contrast global styling.  Explicit widget styles are important on
         # Windows because native/theme defaults can otherwise produce pale text
         # on pale table rows and notebook tabs.
-        ui_font = ("Segoe UI", 10)
-        ui_font_bold = ("Segoe UI", 10, "bold")
+        ui_font = ("Segoe UI", 9)
+        ui_font_bold = ("Segoe UI", 9, "bold")
         style.configure(".", background=self.bg, foreground=self.fg, font=ui_font)
         style.configure("TFrame", background=self.bg)
         style.configure("TLabelframe", background=self.bg, foreground=self.fg)
         style.configure("TLabelframe.Label", background=self.bg, foreground=self.fg, font=ui_font_bold)
         style.configure("TLabel", background=self.bg, foreground=self.fg, font=ui_font)
-        style.configure("Big.TLabel", background=self.bg, foreground=self.fg, font=("Segoe UI", 11, "bold"))
+        style.configure("Big.TLabel", background=self.bg, foreground=self.fg, font=("Segoe UI", 10, "bold"))
         style.configure("Muted.TLabel", background=self.bg, foreground="#d0d0d0", font=ui_font)
 
-        style.configure("TButton", background=self.panel, foreground=self.fg, padding=7, font=ui_font)
+        style.configure("TButton", background=self.panel, foreground=self.fg, padding=4, font=ui_font)
         style.map("TButton",
                   background=[("active", "#353535"), ("pressed", "#444444")],
                   foreground=[("disabled", "#9a9a9a"), ("!disabled", self.fg)])
@@ -490,11 +490,11 @@ class SilenceCutterApp(tk.Tk):
         # Treeview rows seen on some Windows theme/DPI combinations.
         style.configure("Treeview",
                         background="#242424", fieldbackground="#242424",
-                        foreground="#f4f4f4", rowheight=28, font=ui_font,
+                        foreground="#f4f4f4", rowheight=24, font=ui_font,
                         borderwidth=0)
         style.configure("Treeview.Heading",
                         background="#333333", foreground="#ffffff",
-                        font=ui_font_bold, relief="flat", padding=(6, 5))
+                        font=ui_font_bold, relief="flat", padding=(5, 3))
         style.map("Treeview",
                   background=[("selected", "#6248c7")],
                   foreground=[("selected", "#ffffff")])
@@ -506,7 +506,7 @@ class SilenceCutterApp(tk.Tk):
         style.configure("TNotebook", background=self.bg, borderwidth=0)
         style.configure("TNotebook.Tab",
                         background="#2a2a2a", foreground="#f0f0f0",
-                        font=ui_font_bold, padding=(10, 7))
+                        font=ui_font_bold, padding=(8, 5))
         style.map("TNotebook.Tab",
                   background=[("selected", "#4a3a75"), ("active", "#383838")],
                   foreground=[("selected", "#ffffff"), ("active", "#ffffff"), ("!selected", "#e8e8e8")])
