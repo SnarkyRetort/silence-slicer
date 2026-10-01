@@ -1028,8 +1028,20 @@ class SilenceCutterApp(tk.Tk):
             style="Muted.TLabel",
         ).grid(row=1, column=0, columnspan=10, sticky="w", padx=8, pady=(0, 7))
 
-        panes = ttk.Panedwindow(outer, orient="vertical")
-        panes.pack(fill="both", expand=True, pady=(10, 0))
+        # Main review workspace: a fixed two-column action rail on the left and
+        # the transcript/ranked-moments workspace on the right.  This keeps all
+        # review controls visible at the default 1280x720 window size without
+        # requiring a page scrollbar or a wider window.
+        review_workspace = ttk.Frame(outer)
+        review_workspace.pack(fill="both", expand=True, pady=(10, 0))
+
+        action_rail = ttk.LabelFrame(review_workspace, text="Review Actions")
+        action_rail.pack(side="left", fill="y", padx=(0, 10))
+        action_rail.columnconfigure(0, weight=1)
+        action_rail.columnconfigure(1, weight=1)
+
+        panes = ttk.Panedwindow(review_workspace, orient="vertical")
+        panes.pack(side="left", fill="both", expand=True)
 
         transcript_box = ttk.LabelFrame(panes, text="Transcript")
         results_box = ttk.LabelFrame(panes, text="Ranked Moments")
@@ -1107,31 +1119,48 @@ class SilenceCutterApp(tk.Tk):
         self.footage_detail_text.pack(fill="x", padx=8, pady=8)
         self.footage_detail_text.configure(state="disabled")
 
-        actions = ttk.Frame(results_box)
-        actions.pack(fill="x", padx=8, pady=(0, 8))
-        self.footage_preview_btn = ttk.Button(actions, text="▶ Preview Moment", command=self._preview_selected_moment, state="disabled")
-        self.footage_preview_btn.pack(side="left")
-        ttk.Button(actions, text="KEEP (K)", command=lambda: self._set_moment_status("KEEP")).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="MAYBE (M)", command=lambda: self._set_moment_status("MAYBE")).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="TRASH (T)", command=lambda: self._set_moment_status("TRASH")).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Edit Details", command=self._edit_selected_moment).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="+ Selected to Sequence", command=self._sequence_add_selected_moment).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="+ KEEP to Sequence", command=self._sequence_add_keep_moments).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="ALL Dialogue → Sequence", command=self._sequence_add_all_dialogue).pack(side="left", padx=(8, 0))
-        ttk.Separator(actions, orient="vertical").pack(side="left", fill="y", padx=10)
-        ttk.Button(actions, text="Export CSV", command=lambda: self._export_footage_moments("csv")).pack(side="left")
-        ttk.Button(actions, text="Export TXT", command=lambda: self._export_footage_moments("txt")).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Export JSON", command=lambda: self._export_footage_moments("json")).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Open Index Folder", command=self._open_footage_index_folder).pack(side="right")
+        # Compact two-column action bank.  Keeping this in the left rail frees
+        # the full right side for Transcript, Ranked Moments, and Selected Moment.
+        btn_pad = {"padx": 4, "pady": 4, "sticky": "ew"}
 
-        bulk = ttk.Frame(results_box)
-        bulk.pack(fill="x", padx=8, pady=(0, 8))
-        ttk.Label(bulk, text="Bulk review:", style="Muted.TLabel").pack(side="left")
-        ttk.Button(bulk, text="Keep All", command=lambda: self._set_all_moment_status("KEEP")).pack(side="left", padx=(8, 0))
-        ttk.Button(bulk, text="Maybe All", command=lambda: self._set_all_moment_status("MAYBE")).pack(side="left", padx=(8, 0))
-        ttk.Button(bulk, text="Trash All", command=lambda: self._set_all_moment_status("TRASH")).pack(side="left", padx=(8, 0))
-        ttk.Button(bulk, text="Keep Top N", command=self._keep_top_n_moments).pack(side="left", padx=(8, 0))
-        ttk.Label(bulk, text="Ctrl/Shift-select rows, or press K / M / T to mark and advance.", style="Muted.TLabel").pack(side="left", padx=(14, 0))
+        self.footage_preview_btn = ttk.Button(
+            action_rail, text="▶ Preview", command=self._preview_selected_moment, state="disabled"
+        )
+        self.footage_preview_btn.grid(row=0, column=0, **btn_pad)
+        ttk.Button(action_rail, text="KEEP (K)", command=lambda: self._set_moment_status("KEEP")).grid(row=0, column=1, **btn_pad)
+
+        ttk.Button(action_rail, text="MAYBE (M)", command=lambda: self._set_moment_status("MAYBE")).grid(row=1, column=0, **btn_pad)
+        ttk.Button(action_rail, text="TRASH (T)", command=lambda: self._set_moment_status("TRASH")).grid(row=1, column=1, **btn_pad)
+
+        ttk.Button(action_rail, text="Edit Details", command=self._edit_selected_moment).grid(row=2, column=0, **btn_pad)
+        ttk.Button(action_rail, text="+ Selected", command=self._sequence_add_selected_moment).grid(row=2, column=1, **btn_pad)
+
+        ttk.Button(action_rail, text="+ KEEP", command=self._sequence_add_keep_moments).grid(row=3, column=0, **btn_pad)
+        ttk.Button(action_rail, text="All Dialogue", command=self._sequence_add_all_dialogue).grid(row=3, column=1, **btn_pad)
+
+        ttk.Separator(action_rail, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=6)
+
+        ttk.Button(action_rail, text="Export CSV", command=lambda: self._export_footage_moments("csv")).grid(row=5, column=0, **btn_pad)
+        ttk.Button(action_rail, text="Export TXT", command=lambda: self._export_footage_moments("txt")).grid(row=5, column=1, **btn_pad)
+
+        ttk.Button(action_rail, text="Export JSON", command=lambda: self._export_footage_moments("json")).grid(row=6, column=0, **btn_pad)
+        ttk.Button(action_rail, text="Open Folder", command=self._open_footage_index_folder).grid(row=6, column=1, **btn_pad)
+
+        ttk.Separator(action_rail, orient="horizontal").grid(row=7, column=0, columnspan=2, sticky="ew", padx=4, pady=6)
+        ttk.Label(action_rail, text="Bulk review", style="Muted.TLabel").grid(row=8, column=0, columnspan=2, sticky="w", padx=4, pady=(2, 2))
+
+        ttk.Button(action_rail, text="Keep All", command=lambda: self._set_all_moment_status("KEEP")).grid(row=9, column=0, **btn_pad)
+        ttk.Button(action_rail, text="Maybe All", command=lambda: self._set_all_moment_status("MAYBE")).grid(row=9, column=1, **btn_pad)
+
+        ttk.Button(action_rail, text="Trash All", command=lambda: self._set_all_moment_status("TRASH")).grid(row=10, column=0, **btn_pad)
+        ttk.Button(action_rail, text="Keep Top N", command=self._keep_top_n_moments).grid(row=10, column=1, **btn_pad)
+
+        ttk.Label(
+            action_rail,
+            text="Ctrl/Shift-select rows\nor press K / M / T\nto mark and advance.",
+            style="Muted.TLabel",
+            justify="left",
+        ).grid(row=11, column=0, columnspan=2, sticky="w", padx=4, pady=(8, 4))
 
         ttk.Label(outer, textvariable=self.footage_status_var, style="Muted.TLabel").pack(anchor="w", pady=(6, 0))
 
