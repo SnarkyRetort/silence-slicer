@@ -1249,12 +1249,36 @@ class SilenceCutterApp(tk.Tk):
             # Foo_LOW.srt should select the registered LOW video instead of
             # silently leaving the project on ORIGINAL.
             if self.project:
-                srt_stem = Path(path).stem.upper()
+                srt_path = Path(path)
+                srt_stem = srt_path.stem.upper()
                 variants = self.project.processed_variants()
                 matches = [
                     label for label in variants
                     if re.search(rf"(?:^|[_\-\s]){re.escape(label.upper())}(?:$|[_\-\s])", srt_stem)
                 ]
+
+                # If the processed video exists in the project's processed
+                # folder but was never registered in project.json, recover it
+                # automatically by exact stem match (Foo_LOW.srt -> Foo_LOW.mp4).
+                if not matches:
+                    processed_dir = self.project.folder("processed")
+                    media_exts = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
+                    candidates = [
+                        p for p in processed_dir.iterdir()
+                        if p.is_file() and p.suffix.lower() in media_exts
+                        and p.stem.upper() == srt_stem
+                    ]
+                    if len(candidates) == 1:
+                        video = candidates[0]
+                        # Prefer the trailing filename token as the variant label.
+                        # Born_Dragonborn_LOW -> LOW.
+                        label = re.split(r"[_\-\s]+", video.stem)[-1].upper() or "PROCESSED"
+                        self.project.register_processed(label, video)
+                        self._refresh_project_display()
+                        self._refresh_processed_versions()
+                        variants = self.project.processed_variants()
+                        matches = [label]
+
                 if len(matches) == 1:
                     label = matches[0]
                     video = variants.get(label)
@@ -1262,6 +1286,9 @@ class SilenceCutterApp(tk.Tk):
                         self.footage_version_var.set(label)
                         self.footage_video_var.set(str(video))
                         self.footage_index_path = self.project.footage_index_path(video)
+                        self.footage_status_var.set(
+                            f"Matched {Path(path).name} to processed version {label}."
+                        )
 
             self._save_preferences()
 
