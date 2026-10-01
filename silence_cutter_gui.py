@@ -390,6 +390,11 @@ class SilenceCutterApp(tk.Tk):
         self.footage_preview_proc = None
         self.footage_preview_window = None
 
+        # Keep Cut & Analyze's output file and Footage Analysis's cleaned video
+        # pointed at the same processed file. Changing the cut/output path should
+        # immediately follow through to Footage Analysis.
+        self.output_var.trace_add("write", self._sync_output_to_footage)
+
         # Sequence Builder is deliberately a separate pre-editor module. It holds
         # only clip references/timestamps in memory; media stays on disk.
         self.sequence_name_var = tk.StringVar(value=cfg.get("sequence_name", "The Unbound Rough Cut"))
@@ -3370,6 +3375,29 @@ Which brings me to Kaelen and something called Soul Tear.
                 subprocess.Popen(["xdg-open", str(folder)])
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc))
+
+    def _sync_output_to_footage(self, *_args):
+        """Mirror the current processed output into Footage Analysis."""
+        if not hasattr(self, "footage_video_var"):
+            return
+        raw = self.output_var.get().strip()
+        if not raw:
+            return
+        path = Path(raw).expanduser()
+        self.footage_video_var.set(str(path))
+
+        # If this is an existing processed project file, register/select the
+        # current cut variant so the Project version dropdown follows it too.
+        if self.project and path.is_file():
+            try:
+                label = pm._norm_label(self.cut_strength.get() or "PROCESSED")
+                self.project.register_processed(label, path)
+                self.footage_version_var.set(label.upper())
+                self.footage_index_path = self.project.footage_index_path(path)
+                if hasattr(self, "footage_version_combo"):
+                    self._refresh_processed_versions()
+            except Exception:
+                pass
 
     # ---------- settings / persistence ----------
     def _apply_builtin_preset(self, name, update_output=True):
