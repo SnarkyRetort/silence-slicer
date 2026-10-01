@@ -345,7 +345,7 @@ def export_fcpxml(
     fps = parse_fps(fps)
 
     path = Path(path)
-    root = ET.Element("fcpxml", version="1.10")
+    root = ET.Element("fcpxml", version="1.8")
     resources = ET.SubElement(root, "resources")
     ET.SubElement(resources, "format", {
         "id": "r1",
@@ -388,7 +388,10 @@ def export_fcpxml(
             asset_frames = max(1, _frames(max_ends[source] + 1.0, fps))
             source_duration_frames[source] = None
 
-        asset = ET.SubElement(resources, "asset", {
+        # Use the FCPXML 1.8 asset form for broad DaVinci Resolve
+        # compatibility.  Resolve has historically been more reliable with the
+        # source URL directly on the asset than with the newer media-rep wrapper.
+        ET.SubElement(resources, "asset", {
             "id": rid,
             "name": Path(source).name,
             "start": "0s",
@@ -396,9 +399,9 @@ def export_fcpxml(
             "hasVideo": "1",
             "hasAudio": "1",
             "format": "r1",
-        })
-        ET.SubElement(asset, "media-rep", {
-            "kind": "original-media",
+            "audioSources": "1",
+            "audioChannels": "2",
+            "audioRate": "48000",
             "src": _file_uri(source),
         })
 
@@ -445,6 +448,7 @@ def export_fcpxml(
         attrs = {
             "name": item.title or f"Clip {n}",
             "ref": source_ids[source],
+            "format": "r1",
             "offset": _fcpx_frames(cursor_frames, fps),
             "start": _fcpx_frames(in_f, fps),
             "duration": _fcpx_frames(dur_f, fps),
