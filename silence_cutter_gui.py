@@ -74,7 +74,7 @@ AUDIO_SMOOTHING = {
 
 CUT_PRESETS = {
     "Low": {
-        "threshold": -35.0,
+        "threshold": -50.0,
         "min_silence": 1.8,
         "padding": 0.30,
         "min_clip": 0.10,
