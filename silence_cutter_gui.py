@@ -1045,8 +1045,10 @@ class SilenceCutterApp(tk.Tk):
 
         transcript_box = ttk.LabelFrame(panes, text="Transcript")
         results_box = ttk.LabelFrame(panes, text="Ranked Moments")
+        detail = ttk.LabelFrame(panes, text="Selected Moment")
         panes.add(transcript_box, weight=1)
         panes.add(results_box, weight=2)
+        panes.add(detail, weight=1)
 
         search_row = ttk.Frame(transcript_box)
         search_row.pack(fill="x", padx=8, pady=(8, 4))
@@ -1061,7 +1063,7 @@ class SilenceCutterApp(tk.Tk):
         transcript_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         self.footage_transcript_tree = ttk.Treeview(
             transcript_frame, columns=("start", "end", "speaker", "text"),
-            show="headings", height=7,
+            show="headings", height=5,
         )
         for col, label, width, stretch in (
             ("start", "Start", 90, False),
@@ -1082,7 +1084,7 @@ class SilenceCutterApp(tk.Tk):
         self.footage_result_tree = ttk.Treeview(
             result_frame,
             columns=("rank", "start", "end", "duration", "status", "characters", "title"),
-            show="headings", height=10, selectmode="extended",
+            show="headings", height=7, selectmode="extended",
         )
         specs = (
             ("rank", "#", 42, False),
@@ -1109,19 +1111,17 @@ class SilenceCutterApp(tk.Tk):
         res_scroll.pack(side="right", fill="y")
         self.footage_result_tree.configure(yscrollcommand=res_scroll.set)
 
-        detail = ttk.LabelFrame(results_box, text="Selected Moment")
-        detail.pack(fill="x", padx=8, pady=(4, 6))
         self.footage_detail_text = tk.Text(
-            detail, height=5, wrap="word",
+            detail, height=3, wrap="word",
             background=self.field, foreground=self.fg, insertbackground=self.fg,
             selectbackground="#4a4a4a", selectforeground=self.fg, relief="flat",
         )
-        self.footage_detail_text.pack(fill="x", padx=8, pady=8)
+        self.footage_detail_text.pack(fill="both", expand=True, padx=8, pady=6)
         self.footage_detail_text.configure(state="disabled")
 
         # Compact two-column action bank.  Keeping this in the left rail frees
         # the full right side for Transcript, Ranked Moments, and Selected Moment.
-        btn_pad = {"padx": 4, "pady": 4, "sticky": "ew"}
+        btn_pad = {"padx": 3, "pady": 2, "sticky": "ew"}
 
         self.footage_preview_btn = ttk.Button(
             action_rail, text="▶ Preview", command=self._preview_selected_moment, state="disabled"
@@ -1146,21 +1146,13 @@ class SilenceCutterApp(tk.Tk):
         ttk.Button(action_rail, text="Export JSON", command=lambda: self._export_footage_moments("json")).grid(row=6, column=0, **btn_pad)
         ttk.Button(action_rail, text="Open Folder", command=self._open_footage_index_folder).grid(row=6, column=1, **btn_pad)
 
-        ttk.Separator(action_rail, orient="horizontal").grid(row=7, column=0, columnspan=2, sticky="ew", padx=4, pady=6)
-        ttk.Label(action_rail, text="Bulk review", style="Muted.TLabel").grid(row=8, column=0, columnspan=2, sticky="w", padx=4, pady=(2, 2))
+        ttk.Separator(action_rail, orient="horizontal").grid(row=7, column=0, columnspan=2, sticky="ew", padx=4, pady=4)
 
-        ttk.Button(action_rail, text="Keep All", command=lambda: self._set_all_moment_status("KEEP")).grid(row=9, column=0, **btn_pad)
-        ttk.Button(action_rail, text="Maybe All", command=lambda: self._set_all_moment_status("MAYBE")).grid(row=9, column=1, **btn_pad)
+        ttk.Button(action_rail, text="Keep All", command=lambda: self._set_all_moment_status("KEEP")).grid(row=8, column=0, **btn_pad)
+        ttk.Button(action_rail, text="Maybe All", command=lambda: self._set_all_moment_status("MAYBE")).grid(row=8, column=1, **btn_pad)
 
-        ttk.Button(action_rail, text="Trash All", command=lambda: self._set_all_moment_status("TRASH")).grid(row=10, column=0, **btn_pad)
-        ttk.Button(action_rail, text="Keep Top N", command=self._keep_top_n_moments).grid(row=10, column=1, **btn_pad)
-
-        ttk.Label(
-            action_rail,
-            text="Ctrl/Shift-select rows\nor press K / M / T\nto mark and advance.",
-            style="Muted.TLabel",
-            justify="left",
-        ).grid(row=11, column=0, columnspan=2, sticky="w", padx=4, pady=(8, 4))
+        ttk.Button(action_rail, text="Trash All", command=lambda: self._set_all_moment_status("TRASH")).grid(row=9, column=0, **btn_pad)
+        ttk.Button(action_rail, text="Keep Top N", command=self._keep_top_n_moments).grid(row=9, column=1, **btn_pad)
 
         ttk.Label(outer, textvariable=self.footage_status_var, style="Muted.TLabel").pack(anchor="w", pady=(6, 0))
 
