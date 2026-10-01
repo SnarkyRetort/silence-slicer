@@ -1,0 +1,15 @@
+Silence Slicer — Footage Analysis Preview Parity Update
+
+Changes:
+- Footage Analysis preview now uses a dedicated in-app pop-out window instead of a bare ffplay window.
+- Preview controls mirror Review & Export:
+  * scrubber
+  * previous 5 seconds
+  * play/pause
+  * next 5 seconds
+  * expand/contract preview
+  * open external player
+  * current/selected time display
+- Selected ranked moments and transcript-line previews reuse the same preview window.
+- Preview window is resizable and cleans up ffmpeg/ffplay subprocesses when closed.
+- Existing cutter, TTS, crossrefs, sequence builder, project logic, and review page are unchanged.

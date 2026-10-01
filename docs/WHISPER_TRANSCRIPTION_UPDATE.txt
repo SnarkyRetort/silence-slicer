@@ -1,0 +1,18 @@
+Silence Cutter — Footage Transcription Update
+
+Added to Footage Analysis:
+- New "Transcribe Video" button beside Matching SRT.
+- Transcribes the selected CLEANED video so subtitle timestamps match the footage exactly.
+- Saves the generated SRT in the project's transcript folder (or beside the video when no project is open).
+- Automatically fills Matching SRT and loads the Footage Map when transcription finishes.
+- Prefers faster-whisper with CUDA, then falls back to CPU.
+- Falls back to the openai-whisper Python package if faster-whisper is not installed.
+
+Recommended one-time install:
+    py -m pip install faster-whisper
+
+Default model: base.en
+Override it before launching if desired:
+    set SILENCE_CUTTER_WHISPER_MODEL=small.en
+
+First use may download the selected Whisper model.

@@ -1,0 +1,12 @@
+Silence Slicer — Footage Review Tabs + Preview Sync
+
+Changes:
+- Footage Analysis review area is now a left-to-right tab workflow:
+  1 Transcript
+  2 Ranked Moments
+  3 Selected Moment
+- Selected Moment has a large synchronized preview timer/status display.
+- When Preview Moment launches, the app tracks the ffplay preview in real time and shows:
+  current preview time, PRE/MOMENT/POST state, and the selected moment's exact start/end.
+- Keeps the compact 480x270 external preview window.
+- All previous Whisper, CUDA fallback, dark-table, wide-layout, UI COVER, and review-workspace changes remain included.

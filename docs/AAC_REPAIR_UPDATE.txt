@@ -1,0 +1,17 @@
+Silence Slicer — automatic damaged-media retry
+
+This update adds a targeted recovery path for source recordings with damaged AAC/media packets.
+
+Behavior:
+- Normal render runs first.
+- If FFmpeg fails with a recognizable decoder/corrupt-packet error, only the failed render/chunk is retried.
+- Retry uses tolerant input decoding: discard corrupt packets, ignore decoder errors where possible, and permit high decode-error rates.
+- Chunked renders resume after a successful retry instead of throwing away earlier completed chunks.
+- Direct (single-chunk) renders receive the same recovery behavior.
+- Non-decoder errors are NOT swallowed; they still fail normally so real bugs remain visible.
+
+Expected log messages include:
+  Chunk 13/13 hit damaged media packets. Retrying this chunk in tolerant decode mode…
+  Chunk 13/13 recovered from damaged input packets and completed.
+
+The retry preserves the normal video/output settings. Corrupt audio frames may be dropped by FFmpeg, so a tiny damaged region can contain a brief audio discontinuity rather than aborting the entire job.

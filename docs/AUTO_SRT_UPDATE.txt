@@ -1,0 +1,22 @@
+Silence Slicer — Automatic Processed SRT Update
+
+What changed:
+- Cut & Analyze now has "Auto SRT → Footage Analysis" enabled by default.
+- After a processed LOW / MEDIUM / HIGH / CONVERSATION video finishes, Silence Slicer creates or reconnects the matching project SRT.
+- Best path: import a SOURCE SRT once. Every cut version is then remapped to the new cut timing automatically.
+- If there is no SOURCE SRT, Silence Slicer will use local faster-whisper if it is already installed.
+- The resulting SRT is saved in the project's transcript folder, registered to the processed version, and automatically appears in Footage Analysis when that version is selected.
+- Silence Slicer never fabricates subtitle text. If neither SOURCE SRT nor a local transcription backend exists, the video still finishes normally and the log explains what is missing.
+
+Project layout example:
+Example_Project/
+  processed/
+    Example_Project_CONVERSATION.mp4
+  transcript/
+    Example_Project_CONVERSATION.srt
+
+Install:
+1. Close Silence Slicer.
+2. Extract this ZIP.
+3. Copy the .py files into <Silence-Slicer folder> and replace the existing files.
+4. Reopen the app.

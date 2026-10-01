@@ -1,0 +1,11 @@
+Silence Slicer — Preview Transport Update
+
+- Keeps the external footage preview compact at 480x270.
+- The preview remains a normal Windows window with its title bar, so it can be dragged anywhere on screen.
+- Adds in-app transport controls on the Selected Moment tab:
+  - Back 5 seconds
+  - Play / Pause
+  - Forward 5 seconds
+  - Horizontal scrubber
+- The timer, scrubber, and preview position stay synchronized.
+- Seeking restarts ffplay at the requested point inside the selected preview range.

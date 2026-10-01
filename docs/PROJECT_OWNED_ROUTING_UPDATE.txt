@@ -1,0 +1,43 @@
+Silence Slicer — Project-Owned File Routing Update
+
+What changed
+============
+A project now owns the complete file chain for one recording.
+
+Project folders:
+  source/       optional archived RAW copy
+  processed/    LOW / MEDIUM / HIGH / CONVERSATION processed variants
+  transcript/   imported gameplay SRT files
+  analysis/     footage indexes, moment exports, story crossrefs, clip lists
+  sequences/    saved Sequence Builder JSON files
+  exports/      Resolve FCPXML, edit lists, rough assemblies
+  exports/clips/
+  narration/    narration script, TTS render, narration SRT/VTT/TXT
+
+Normal workflow
+===============
+1. Create Project.
+2. Link Existing (recommended for large raw recordings) or Copy Into Project.
+3. Choose Low / Medium / High / Conversation in Cut & Analyze.
+4. Process Video. Each preset gets its own stable filename in processed/.
+5. Footage Analysis now has a Project Version selector so you can switch among ORIGINAL, LOW, MEDIUM, HIGH, etc.
+6. Import the matching SRT; it is copied into transcript/ and tied to the selected project version.
+7. Analysis exports automatically go to analysis/.
+8. Sequence saves automatically go to sequences/.
+9. Resolve XML, edit lists, and rough renders automatically go to exports/.
+10. Narration/TTS automatically uses narration/ while a project is active.
+
+Processed naming example
+========================
+  2026-09-24_Unbound_Session_001_LOW.mp4
+  2026-09-24_Unbound_Session_001_MEDIUM.mp4
+  2026-09-24_Unbound_Session_001_HIGH.mp4
+  2026-09-24_Unbound_Session_001_CONVERSATION.mp4
+
+Existing projects
+=================
+Old project.json files are migrated automatically when opened. Existing files are not moved or deleted.
+
+Important
+=========
+When no project is open, old Save As / Browse behavior remains available. When a project is open, project-owned outputs use deterministic paths so you do not have to hunt for them.

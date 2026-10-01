@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.bak
+.venv/
+venv/
+
+# Secrets / local configuration
+.env
+.env.*
+*.key
+*.pem
+
+# Windows / shortcuts
+*.lnk
+Thumbs.db
+Desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+temp/
+tmp/
+
+# Media and generated outputs
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.webm
+*.m4v
+*.wav
+*.mp3
+*.flac
+*.aac
+*.srt
+*.vtt
+*.csv
+output/
+processed/
+transcript/
+Silence Remover Output/
+
+# Local FFmpeg bundles (install FFmpeg separately)
+bin/
+ffmpeg-*-build/
+ffmpeg-*-essentials_build/
+doc/
+presets/

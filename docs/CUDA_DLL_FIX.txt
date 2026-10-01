@@ -1,0 +1,11 @@
+Silence Cutter — Whisper CUDA DLL reliability fix
+
+Fixes Windows popup: "Library cublas64_12.dll is not found or cannot be loaded".
+
+Behavior:
+- Before trying faster-whisper on CUDA, Silence Cutter checks for CUDA 12 cuBLAS.
+- If cublas64_12.dll is not present, transcription automatically uses optimized CPU int8.
+- This avoids the native DLL error dialog/crash path.
+- If CUDA 12 cuBLAS is later installed and visible in PATH/CUDA_PATH, GPU transcription is used automatically.
+
+All prior Whisper transcription improvements remain included.
