@@ -32,6 +32,11 @@ from xml.etree import ElementTree as ET
 from unbound_utils import atomic_write_json, seconds_to_clock
 
 
+def _creationflags() -> int:
+    """Hide ffmpeg/ffprobe console windows when launched from the GUI on Windows."""
+    return getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+
+
 @dataclass
 class SequenceItem:
     id: str
@@ -314,7 +319,10 @@ def probe_duration(ffprobe: str, source: str | Path) -> float | None:
         "-of", "json", str(source),
     ]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, check=False, timeout=30,
+            creationflags=_creationflags(),
+        )
         if proc.returncode != 0:
             return None
         data = json.loads(proc.stdout or "{}")
@@ -549,7 +557,10 @@ def probe_geometry(ffprobe: str, source: str | Path) -> tuple[int, int, bool]:
         ffprobe, "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=width,height", "-of", "json", str(source),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, check=False,
+        creationflags=_creationflags(),
+    )
     if proc.returncode != 0:
         raise SequenceError(proc.stderr.strip() or f"Could not probe {source}")
     data = json.loads(proc.stdout or "{}")
@@ -563,7 +574,10 @@ def probe_geometry(ffprobe: str, source: str | Path) -> tuple[int, int, bool]:
         ffprobe, "-v", "error", "-select_streams", "a:0",
         "-show_entries", "stream=index", "-of", "csv=p=0", str(source),
     ]
-    aproc = subprocess.run(acmd, capture_output=True, text=True, check=False)
+    aproc = subprocess.run(
+        acmd, capture_output=True, text=True, check=False,
+        creationflags=_creationflags(),
+    )
     has_audio = aproc.returncode == 0 and bool(aproc.stdout.strip())
     return width, height, has_audio
 
