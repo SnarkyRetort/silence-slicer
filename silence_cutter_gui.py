@@ -900,10 +900,13 @@ class SilenceCutterApp(tk.Tk):
             tree.delete(item)
         for raw in self.recent_projects[:8]:
             path = Path(raw)
-            try:
-                name = pm.open_project(path).name if path.exists() else path.parent.name or path.stem
-            except Exception:
-                name = path.parent.name or path.stem
+            name = path.parent.name or path.stem
+            if path.is_file():
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    name = str(data.get("name") or name)
+                except Exception:
+                    pass
             tree.insert("", "end", values=(name, str(path)))
 
     def _remember_project(self, workspace):
@@ -1119,24 +1122,6 @@ class SilenceCutterApp(tk.Tk):
         if not self.project:
             raise RuntimeError("Create or open a project first.")
         return self.project
-
-    def _create_project_clicked(self):
-        parent = filedialog.askdirectory(title="Choose where to create the project folder")
-        if not parent:
-            return
-        name = simpledialog.askstring(APP_TITLE, "Project name:", initialvalue="The Unbound Project")
-        if not name:
-            return
-        try:
-            chosen = Path(parent)
-            slug = pm.safe_slug(name)
-            # If the user already selected a folder named for the project, use it as
-            # the project root instead of creating ProjectName/ProjectName.
-            root = chosen if chosen.name.casefold() == slug.casefold() else chosen / slug
-            self._activate_project(pm.create_project(root, name))
-            self.project_status_var.set("Project created. Link or copy the original recording next.")
-        except Exception as exc:
-            messagebox.showerror(APP_TITLE, str(exc))
 
     def _open_project_clicked(self):
         path = filedialog.askopenfilename(
