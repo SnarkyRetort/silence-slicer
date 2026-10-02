@@ -314,6 +314,13 @@ class SilenceCutterApp(tk.Tk):
         self.project_index_var = tk.StringVar(value="—")
         self.project_sequence_var = tk.StringVar(value="—")
         self.project_status_var = tk.StringVar(value="Create or open a project to keep every related file together.")
+        self.project_parent_var = tk.StringVar(
+            value=cfg.get("project_parent", str(Path.home() / "Videos"))
+        )
+        self.recent_projects = [
+            str(p) for p in cfg.get("recent_projects", [])
+            if isinstance(p, str) and p.strip()
+        ][:8]
 
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
@@ -748,55 +755,349 @@ class SilenceCutterApp(tk.Tk):
         outer = ttk.Frame(tab)
         outer.pack(fill="both", expand=True, padx=12, pady=12)
 
-        head = ttk.LabelFrame(outer, text="Silence Slicer Project")
+        head = ttk.LabelFrame(outer, text="Project")
         head.pack(fill="x")
-        ttk.Label(head, text="Project:").grid(row=0, column=0, sticky="w", padx=8, pady=7)
-        ttk.Entry(head, textvariable=self.project_path_var, state="readonly").grid(row=0, column=1, sticky="ew", padx=8, pady=7)
-        ttk.Button(head, text="Create Project…", command=self._create_project_clicked).grid(row=0, column=2, padx=5, pady=7)
-        ttk.Button(head, text="Open Project…", command=self._open_project_clicked).grid(row=0, column=3, padx=5, pady=7)
-        ttk.Button(head, text="Open Folder", command=self._open_project_folder).grid(row=0, column=4, padx=8, pady=7)
-        head.columnconfigure(1, weight=1)
+        ttk.Button(head, text="New Project From Video…", command=self._create_project_clicked).pack(
+            side="left", padx=8, pady=8
+        )
+        ttk.Button(head, text="Open Project…", command=self._open_project_clicked).pack(
+            side="left", padx=(0, 8), pady=8
+        )
+        ttk.Button(head, text="Open Folder", command=self._open_project_folder).pack(
+            side="left", padx=(0, 8), pady=8
+        )
+        ttk.Label(head, textvariable=self.project_name_var, style="Big.TLabel").pack(
+            side="left", padx=(14, 8)
+        )
+        ttk.Label(head, textvariable=self.project_path_var, style="Muted.TLabel").pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
 
-        ttk.Label(outer, textvariable=self.project_name_var, style="Big.TLabel").pack(anchor="w", pady=(12, 4))
-        ttk.Label(
-            outer,
-            text="One project owns the whole chain: source → processed video → transcript → footage analysis → sequences → exports.",
-            style="Muted.TLabel",
-        ).pack(anchor="w", pady=(0, 10))
+        body = ttk.Frame(outer)
+        body.pack(fill="both", expand=True, pady=(10, 0))
+        body.columnconfigure(0, weight=3)
+        body.columnconfigure(1, weight=2)
+        body.rowconfigure(0, weight=1)
 
-        source = ttk.LabelFrame(outer, text="Source Recording")
-        source.pack(fill="x")
-        ttk.Label(source, text="Current source:").grid(row=0, column=0, sticky="w", padx=8, pady=7)
-        ttk.Entry(source, textvariable=self.project_source_var, state="readonly").grid(row=0, column=1, sticky="ew", padx=8, pady=7)
-        ttk.Button(source, text="Link Existing…", command=lambda: self._project_import_source(False)).grid(row=0, column=2, padx=5, pady=7)
-        ttk.Button(source, text="Copy Into Project…", command=lambda: self._project_import_source(True)).grid(row=0, column=3, padx=8, pady=7)
-        source.columnconfigure(1, weight=1)
+        overview = ttk.LabelFrame(body, text="Project Overview")
+        overview.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        overview.columnconfigure(1, weight=1)
 
-        transcript = ttk.LabelFrame(outer, text="Transcript / SRT")
-        transcript.pack(fill="x", pady=(10, 0))
-        ttk.Label(transcript, text="Matching SRT:").grid(row=0, column=0, sticky="w", padx=8, pady=7)
-        ttk.Entry(transcript, textvariable=self.project_srt_display_var, state="readonly").grid(row=0, column=1, sticky="ew", padx=8, pady=7)
-        ttk.Button(transcript, text="Import SRT…", command=self._project_import_srt).grid(row=0, column=2, padx=8, pady=7)
-        transcript.columnconfigure(1, weight=1)
-        ttk.Label(
-            transcript,
-            text="Gameplay SRT must come from speech transcription. Narration/TTS captions are generated automatically from the narration script.",
-            style="Muted.TLabel",
-        ).grid(row=1, column=0, columnspan=3, sticky="w", padx=8, pady=(0, 8))
-
-        assets = ttk.LabelFrame(outer, text="Project Assets")
-        assets.pack(fill="x", pady=(10, 0))
         rows = [
-            ("Processed video", self.project_processed_var),
+            ("Source", self.project_source_var),
+            ("Processed", self.project_processed_var),
+            ("Transcript", self.project_srt_display_var),
             ("Footage index", self.project_index_var),
-            ("Last sequence", self.project_sequence_var),
+            ("Sequence", self.project_sequence_var),
         ]
-        for r, (label, var) in enumerate(rows):
-            ttk.Label(assets, text=label + ":").grid(row=r, column=0, sticky="w", padx=8, pady=6)
-            ttk.Entry(assets, textvariable=var, state="readonly").grid(row=r, column=1, sticky="ew", padx=8, pady=6)
-        assets.columnconfigure(1, weight=1)
+        for row, (label, var) in enumerate(rows):
+            ttk.Label(overview, text=label + ":").grid(
+                row=row, column=0, sticky="w", padx=8, pady=6
+            )
+            ttk.Entry(overview, textvariable=var, state="readonly").grid(
+                row=row, column=1, sticky="ew", padx=8, pady=6
+            )
 
-        ttk.Label(outer, textvariable=self.project_status_var, style="Muted.TLabel").pack(anchor="w", pady=(10, 0))
+        source_tools = ttk.Frame(overview)
+        source_tools.grid(row=len(rows), column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
+        ttk.Button(
+            source_tools, text="Change / Link Source…",
+            command=lambda: self._project_import_source(False)
+        ).pack(side="left")
+        ttk.Button(
+            source_tools, text="Copy Source Into Project…",
+            command=lambda: self._project_import_source(True)
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            source_tools, text="Import Matching SRT…",
+            command=self._project_import_srt
+        ).pack(side="left", padx=(8, 0))
+
+        variants = ttk.LabelFrame(overview, text="Versions")
+        variants.grid(row=len(rows)+1, column=0, columnspan=2, sticky="nsew", padx=8, pady=(8, 8))
+        variants.columnconfigure(0, weight=1)
+        variants.rowconfigure(0, weight=1)
+        self.project_versions_tree = ttk.Treeview(
+            variants,
+            columns=("video", "srt", "analysis"),
+            show="headings",
+            height=6,
+        )
+        self.project_versions_tree.heading("video", text="Version / Video")
+        self.project_versions_tree.heading("srt", text="SRT")
+        self.project_versions_tree.heading("analysis", text="Analysis")
+        self.project_versions_tree.column("video", width=330, stretch=True)
+        self.project_versions_tree.column("srt", width=85, anchor="center", stretch=False)
+        self.project_versions_tree.column("analysis", width=85, anchor="center", stretch=False)
+        self.project_versions_tree.grid(row=0, column=0, sticky="nsew")
+
+        right = ttk.Frame(body)
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        right.rowconfigure(1, weight=1)
+        right.columnconfigure(0, weight=1)
+
+        next_box = ttk.LabelFrame(right, text="What Next?")
+        next_box.grid(row=0, column=0, sticky="ew")
+        self.project_next_var = tk.StringVar(value="Create or open a project to begin.")
+        ttk.Label(
+            next_box, textvariable=self.project_next_var,
+            style="Big.TLabel", wraplength=390, justify="left"
+        ).pack(anchor="w", padx=10, pady=(10, 6))
+        ttk.Label(
+            next_box,
+            text="Silence Slicer keeps the files connected; you still choose the creative settings.",
+            style="Muted.TLabel", wraplength=390, justify="left"
+        ).pack(anchor="w", padx=10, pady=(0, 10))
+
+        recent = ttk.LabelFrame(right, text="Recent Projects")
+        recent.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        recent.columnconfigure(0, weight=1)
+        recent.rowconfigure(0, weight=1)
+        self.recent_projects_tree = ttk.Treeview(
+            recent, columns=("name", "path"), show="headings", height=8
+        )
+        self.recent_projects_tree.heading("name", text="Project")
+        self.recent_projects_tree.heading("path", text="Location")
+        self.recent_projects_tree.column("name", width=145, stretch=False)
+        self.recent_projects_tree.column("path", width=300, stretch=True)
+        self.recent_projects_tree.grid(row=0, column=0, sticky="nsew")
+        self.recent_projects_tree.bind("<Double-1>", lambda _e: self._open_recent_project())
+
+        recent_actions = ttk.Frame(recent)
+        recent_actions.grid(row=1, column=0, sticky="ew", padx=8, pady=8)
+        ttk.Button(recent_actions, text="Open Selected", command=self._open_recent_project).pack(side="left")
+        ttk.Button(recent_actions, text="Forget Missing", command=self._prune_recent_projects).pack(
+            side="left", padx=(8, 0)
+        )
+
+        ttk.Label(outer, textvariable=self.project_status_var, style="Muted.TLabel").pack(
+            anchor="w", pady=(8, 0)
+        )
+        self._refresh_recent_projects()
+        self._refresh_project_overview()
+
+    def _refresh_recent_projects(self):
+        tree = getattr(self, "recent_projects_tree", None)
+        if tree is None:
+            return
+        for item in tree.get_children():
+            tree.delete(item)
+        for raw in self.recent_projects[:8]:
+            path = Path(raw)
+            try:
+                name = pm.open_project(path).name if path.exists() else path.parent.name or path.stem
+            except Exception:
+                name = path.parent.name or path.stem
+            tree.insert("", "end", values=(name, str(path)))
+
+    def _remember_project(self, workspace):
+        manifest = str(workspace.manifest_path)
+        normalized = manifest.casefold()
+        self.recent_projects = [
+            p for p in self.recent_projects
+            if str(p).casefold() != normalized
+        ]
+        self.recent_projects.insert(0, manifest)
+        self.recent_projects = self.recent_projects[:8]
+        self.project_parent_var.set(str(workspace.root.parent))
+        self._refresh_recent_projects()
+
+    def _open_recent_project(self):
+        tree = getattr(self, "recent_projects_tree", None)
+        if tree is None:
+            return
+        selected = tree.selection()
+        if not selected:
+            return
+        values = tree.item(selected[0], "values")
+        if len(values) < 2:
+            return
+        path = Path(values[1])
+        try:
+            self._activate_project(pm.open_project(path))
+        except Exception as exc:
+            messagebox.showerror(APP_TITLE, str(exc))
+
+    def _prune_recent_projects(self):
+        kept = []
+        for raw in self.recent_projects:
+            p = Path(raw)
+            if p.is_file() or (p.is_dir() and (p / pm.PROJECT_FILE).is_file()):
+                kept.append(raw)
+        self.recent_projects = kept[:8]
+        self._refresh_recent_projects()
+        self._save_preferences()
+
+    def _refresh_project_overview(self):
+        tree = getattr(self, "project_versions_tree", None)
+        if tree is not None:
+            for item in tree.get_children():
+                tree.delete(item)
+
+        if not self.project:
+            if hasattr(self, "project_next_var"):
+                self.project_next_var.set("Create a project from a source video.")
+            return
+
+        source = self.project.absolute_path("source")
+        variants = self.project.processed_variants()
+        active = str(self.project.data.get("active_processed") or "").upper()
+
+        if tree is not None:
+            source_srt = self.project.srt_for("SOURCE")
+            tree.insert(
+                "", "end",
+                values=(
+                    "ORIGINAL" + ("  ✓" if source and source.exists() else "  —"),
+                    "✓" if source_srt and source_srt.exists() else "—",
+                    "—",
+                )
+            )
+            for label, video in sorted(variants.items()):
+                srt = self.project.srt_for(label)
+                analysis = self.project.footage_index_path(video)
+                video_mark = "✓" if Path(video).exists() else "!"
+                srt_mark = "✓" if srt and srt.exists() else "—"
+                analysis_mark = "✓" if analysis.exists() else "—"
+                active_mark = "  [ACTIVE]" if label.upper() == active else ""
+                tree.insert(
+                    "", "end",
+                    values=(f"{label}  {video_mark}{active_mark}", srt_mark, analysis_mark)
+                )
+
+        if not source or not source.exists():
+            next_text = "Next: attach the source recording."
+        elif not variants:
+            next_text = f"Next: process a {self.cut_strength.get().upper()} version."
+        else:
+            active_video = variants.get(active) if active else None
+            active_srt = self.project.srt_for(active) if active else None
+            active_index = self.project.footage_index_path(active_video) if active_video else None
+            if active_video and not active_srt:
+                next_text = f"Next: create or attach the {active or 'processed'} transcript."
+            elif active_video and active_srt and (not active_index or not active_index.exists()):
+                next_text = f"Next: analyze moments for {active or 'the processed version'}."
+            elif self.sequence_items:
+                next_text = "Next: review the sequence or export a Resolve package."
+            else:
+                next_text = "Next: review moments and add KEEP clips to Sequence Builder."
+        if hasattr(self, "project_next_var"):
+            self.project_next_var.set(next_text)
+
+    def _show_new_project_dialog(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("New Silence Slicer Project")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.resizable(True, False)
+
+        name_var = tk.StringVar(value="")
+        parent_var = tk.StringVar(value=self.project_parent_var.get())
+        source_var = tk.StringVar(value=self.input_var.get().strip())
+        result = {}
+
+        frame = ttk.Frame(dialog)
+        frame.pack(fill="both", expand=True, padx=14, pady=14)
+        frame.columnconfigure(1, weight=1)
+
+        ttk.Label(frame, text="Project name:").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=6)
+        name_entry = ttk.Entry(frame, textvariable=name_var, width=52)
+        name_entry.grid(row=0, column=1, sticky="ew", pady=6)
+
+        ttk.Label(frame, text="Save projects in:").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=6)
+        ttk.Entry(frame, textvariable=parent_var).grid(row=1, column=1, sticky="ew", pady=6)
+
+        def browse_parent():
+            chosen = filedialog.askdirectory(
+                title="Choose project library folder",
+                initialdir=parent_var.get() or str(Path.home() / "Videos"),
+                parent=dialog,
+            )
+            if chosen:
+                parent_var.set(chosen)
+
+        ttk.Button(frame, text="Browse…", command=browse_parent).grid(row=1, column=2, padx=(8, 0), pady=6)
+
+        ttk.Label(frame, text="Source video:").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=6)
+        ttk.Entry(frame, textvariable=source_var).grid(row=2, column=1, sticky="ew", pady=6)
+
+        def browse_source():
+            chosen = filedialog.askopenfilename(
+                title="Choose source recording",
+                parent=dialog,
+                filetypes=[
+                    ("Video files", "*.mp4 *.mkv *.mov *.avi *.webm *.m4v"),
+                    ("All files", "*.*"),
+                ],
+            )
+            if chosen:
+                source_var.set(chosen)
+                if not name_var.get().strip():
+                    name_var.set(Path(chosen).stem)
+
+        ttk.Button(frame, text="Browse…", command=browse_source).grid(row=2, column=2, padx=(8, 0), pady=6)
+
+        ttk.Label(
+            frame,
+            text="Silence Slicer will create the project folder and all subfolders automatically. "
+                 "The source is linked in place by default.",
+            style="Muted.TLabel",
+            wraplength=620,
+            justify="left",
+        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 10))
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=0, columnspan=3, sticky="e")
+
+        def accept():
+            name = name_var.get().strip()
+            parent = Path(parent_var.get()).expanduser()
+            source = Path(source_var.get()).expanduser()
+            if not name:
+                messagebox.showerror(APP_TITLE, "Give the project a name.", parent=dialog)
+                return
+            if not parent_var.get().strip():
+                messagebox.showerror(APP_TITLE, "Choose where projects should be stored.", parent=dialog)
+                return
+            if not source.is_file():
+                messagebox.showerror(APP_TITLE, "Choose a real source video.", parent=dialog)
+                return
+            result.update(name=name, parent=parent, source=source)
+            dialog.destroy()
+
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="right")
+        ttk.Button(buttons, text="Create Project", command=accept).pack(side="right", padx=(0, 8))
+
+        if source_var.get() and not name_var.get():
+            name_var.set(Path(source_var.get()).stem)
+        name_entry.focus_set()
+        dialog.bind("<Return>", lambda _e: accept())
+        dialog.bind("<Escape>", lambda _e: dialog.destroy())
+        self.wait_window(dialog)
+        return result or None
+
+    def _create_project_clicked(self):
+        request = self._show_new_project_dialog()
+        if not request:
+            return
+        try:
+            name = request["name"]
+            parent = request["parent"].resolve()
+            source = request["source"].resolve()
+            root = parent / pm.safe_slug(name)
+            workspace = pm.create_project(root, name)
+            workspace.attach_source(source, copy_into_project=False)
+            self._activate_project(workspace)
+            self.input_var.set(str(source))
+            self.output_var.set(str(workspace.default_processed_path(source, self.cut_strength.get())))
+            self.project_status_var.set(
+                "Project created, source linked, folders created, and Cut & Analyze is ready."
+            )
+            self._refresh_project_display()
+            self._refresh_project_overview()
+            self._save_preferences()
+        except Exception as exc:
+            messagebox.showerror(APP_TITLE, str(exc))
 
     def _require_project(self):
         if not self.project:
@@ -837,6 +1138,7 @@ class SilenceCutterApp(tk.Tk):
         self.project = workspace
         self.project_path_var.set(str(workspace.manifest_path))
         self.project_name_var.set(workspace.name)
+        self._remember_project(workspace)
         self.output_dir_var.set(str(workspace.folder("processed")))
         self.tts_output_dir_var.set(str(workspace.folder("narration")))
         self.narration_name_var.set(workspace.name)
@@ -877,6 +1179,7 @@ class SilenceCutterApp(tk.Tk):
             self.footage_index_path = index
         if sequence:
             self.sequence_project_path = str(sequence)
+        self._refresh_project_overview()
         self._save_preferences()
         if not quiet:
             self.project_status_var.set(f"Project open: {workspace.name}")
@@ -893,6 +1196,7 @@ class SilenceCutterApp(tk.Tk):
         self.project_srt_display_var.set(info.get("srt") or "—")
         self.project_index_var.set(info.get("footage_index") or "—")
         self.project_sequence_var.set(info.get("sequence") or "—")
+        self._refresh_project_overview()
 
     def _project_import_source(self, copy_into_project=False):
         try:
@@ -3479,6 +3783,8 @@ Which brings me to Kaelen and something called Soul Tear.
             "tts_voice": self.tts_voice_var.get(),
             "tts_output_dir": self.tts_output_dir_var.get(),
             "current_project": str(self.project.manifest_path) if self.project else self.project_path_var.get(),
+            "project_parent": self.project_parent_var.get(),
+            "recent_projects": self.recent_projects[:8],
             "narration_name": self.narration_name_var.get(),
             "footage_video": self.footage_video_var.get(),
             "footage_srt": self.footage_srt_var.get(),
