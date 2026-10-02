@@ -670,9 +670,9 @@ def render_assembly(
                     "-movflags", "+faststart", str(seg),
                 ]
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, check=False,
-                creationflags=_creationflags(),
-            )
+            cmd, capture_output=True, text=True, check=False,
+            creationflags=_creationflags(),
+        )
             if proc.returncode != 0:
                 raise SequenceError(proc.stderr.strip() or f"FFmpeg failed while rendering clip {idx}.")
             if progress:
