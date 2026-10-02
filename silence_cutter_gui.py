@@ -576,6 +576,21 @@ class SilenceCutterApp(tk.Tk):
                 command=lambda n=name: self._apply_builtin_preset(n)
             ).pack(side="left", padx=10)
 
+        creative = ttk.LabelFrame(outer, text="Cut Controls")
+        creative.pack(fill="x", pady=(10, 0))
+        ttk.Label(creative, text="Threshold (dB):").grid(row=0, column=0, sticky="w", padx=(10, 6), pady=7)
+        ttk.Entry(creative, textvariable=self.threshold_var, width=10).grid(row=0, column=1, sticky="w", pady=7)
+        ttk.Label(creative, text="Min silence (sec):").grid(row=0, column=2, sticky="w", padx=(18, 6), pady=7)
+        ttk.Entry(creative, textvariable=self.min_silence_var, width=10).grid(row=0, column=3, sticky="w", pady=7)
+        ttk.Label(creative, text="Padding (sec):").grid(row=0, column=4, sticky="w", padx=(18, 6), pady=7)
+        ttk.Entry(creative, textvariable=self.padding_var, width=10).grid(row=0, column=5, sticky="w", pady=7)
+        ttk.Label(
+            creative,
+            text="These change what gets cut. Encoder, quality, batching, and test-range plumbing live under Advanced.",
+            style="Muted.TLabel"
+        ).grid(row=0, column=6, sticky="w", padx=(18, 10), pady=7)
+        creative.columnconfigure(6, weight=1)
+
         adv_header = ttk.Frame(outer)
         adv_header.pack(fill="x", pady=(10, 0))
         self.advanced_btn = ttk.Button(adv_header, text="Show Advanced ▾", command=self._toggle_advanced)
@@ -3115,34 +3130,52 @@ class SilenceCutterApp(tk.Tk):
             ttk.Label(self.advanced, text=label).grid(row=row, column=col, sticky="w", padx=8, pady=5)
             ttk.Entry(self.advanced, textvariable=var, width=width).grid(row=row, column=col+1, sticky="w", padx=8, pady=5)
 
-        field("Threshold (dB):", self.threshold_var, 0, 0)
-        field("Min silence (sec):", self.min_silence_var, 0, 2)
-        field("Padding (sec):", self.padding_var, 1, 0)
-        field("Min kept clip (sec):", self.min_clip_var, 1, 2)
+        field("Min kept clip (sec):", self.min_clip_var, 0, 0)
 
-        ttk.Label(self.advanced, text="Encoder:").grid(row=2, column=0, sticky="w", padx=8, pady=5)
-        ttk.Combobox(self.advanced, textvariable=self.encoder_var, values=["nvenc", "cpu", "qsv", "videotoolbox"], state="readonly", width=13).grid(row=2, column=1, sticky="w", padx=8, pady=5)
-        field("Quality / CRF-CQ:", self.crf_var, 2, 2)
-        field("CPU preset:", self.cpu_preset_var, 3, 0)
-        field("Audio bitrate:", self.audio_var, 3, 2)
-        field("Batch size:", self.batch_var, 4, 0)
+        ttk.Label(self.advanced, text="Encoder:").grid(row=0, column=2, sticky="w", padx=8, pady=5)
+        ttk.Combobox(
+            self.advanced, textvariable=self.encoder_var,
+            values=["nvenc", "cpu", "qsv", "videotoolbox"],
+            state="readonly", width=13
+        ).grid(row=0, column=3, sticky="w", padx=8, pady=5)
 
-        ttk.Label(self.advanced, text="Audio smoothing:").grid(row=4, column=2, sticky="w", padx=8, pady=5)
-        ttk.Combobox(self.advanced, textvariable=self.audio_smoothing_var, values=list(AUDIO_SMOOTHING), state="readonly", width=13).grid(row=4, column=3, sticky="w", padx=8, pady=5)
+        field("Quality / CRF-CQ:", self.crf_var, 1, 0)
+        field("CPU preset:", self.cpu_preset_var, 1, 2)
+        field("Audio bitrate:", self.audio_var, 2, 0)
+        field("Batch size:", self.batch_var, 2, 2)
 
-        field("Skip intro (sec):", self.skip_intro_var, 5, 0)
-        field("Skip outro (sec):", self.skip_outro_var, 5, 2)
-        field("Test start (min):", self.test_start_var, 6, 0)
-        field("Test duration (min):", self.test_duration_var, 6, 2)
+        ttk.Label(self.advanced, text="Audio smoothing:").grid(row=3, column=0, sticky="w", padx=8, pady=5)
+        ttk.Combobox(
+            self.advanced, textvariable=self.audio_smoothing_var,
+            values=list(AUDIO_SMOOTHING), state="readonly", width=13
+        ).grid(row=3, column=1, sticky="w", padx=8, pady=5)
 
-        ttk.Checkbutton(self.advanced, text="Automatic dated/numbered filename", variable=self.auto_name_var, command=self._auto_name_output).grid(row=7, column=0, columnspan=2, sticky="w", padx=8, pady=5)
-        ttk.Checkbutton(self.advanced, text="Overwrite existing output", variable=self.overwrite_var).grid(row=7, column=2, columnspan=2, sticky="w", padx=8, pady=5)
+        field("Skip intro (sec):", self.skip_intro_var, 3, 2)
+        field("Skip outro (sec):", self.skip_outro_var, 4, 0)
+        field("Test start (min):", self.test_start_var, 4, 2)
+        field("Test duration (min):", self.test_duration_var, 5, 0)
 
-        ttk.Label(self.advanced, text="Custom preset:").grid(row=8, column=0, sticky="w", padx=8, pady=5)
-        self.custom_combo = ttk.Combobox(self.advanced, textvariable=self.custom_preset_var, values=sorted(self.custom_presets), state="readonly", width=18)
-        self.custom_combo.grid(row=8, column=1, sticky="w", padx=8, pady=5)
-        ttk.Button(self.advanced, text="Load", command=self._load_custom_preset).grid(row=8, column=2, sticky="w", padx=8, pady=5)
-        ttk.Button(self.advanced, text="Save Current…", command=self._save_custom_preset).grid(row=8, column=3, sticky="w", padx=8, pady=5)
+        ttk.Checkbutton(
+            self.advanced, text="Automatic dated/numbered filename",
+            variable=self.auto_name_var, command=self._auto_name_output
+        ).grid(row=5, column=2, columnspan=2, sticky="w", padx=8, pady=5)
+        ttk.Checkbutton(
+            self.advanced, text="Overwrite existing output",
+            variable=self.overwrite_var
+        ).grid(row=6, column=0, columnspan=2, sticky="w", padx=8, pady=5)
+
+        ttk.Label(self.advanced, text="Custom preset:").grid(row=6, column=2, sticky="w", padx=8, pady=5)
+        self.custom_combo = ttk.Combobox(
+            self.advanced, textvariable=self.custom_preset_var,
+            values=sorted(self.custom_presets), state="readonly", width=18
+        )
+        self.custom_combo.grid(row=6, column=3, sticky="w", padx=8, pady=5)
+        ttk.Button(self.advanced, text="Load", command=self._load_custom_preset).grid(
+            row=7, column=2, sticky="w", padx=8, pady=5
+        )
+        ttk.Button(self.advanced, text="Save Current…", command=self._save_custom_preset).grid(
+            row=7, column=3, sticky="w", padx=8, pady=5
+        )
 
     def _browse_tts_output_dir(self):
         p = filedialog.askdirectory(title="Choose narration output folder")
