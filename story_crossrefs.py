@@ -306,7 +306,7 @@ def build_crossrefs(diaries: Iterable[DiaryEntry], moments: Iterable[FootageMome
             # Boost distinctive proper-looking/shared event terms and callbacks.
             score=lexical + min(0.22, len(char_overlap)*0.07) + min(0.18, len(callback)*0.05)
             # Exact multiword phrase fragment (4+ words) is strong evidence.
-            dn=" ".join(dt); mn=" ".join(toks)
+            mn=" ".join(toks)
             phrase=False
             for i in range(max(0,len(dt)-3)):
                 p=" ".join(dt[i:i+4])
