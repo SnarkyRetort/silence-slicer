@@ -1498,6 +1498,12 @@ class SilenceCutterApp(tk.Tk):
         ttk.Button(action_rail, text="Trash All", command=lambda: self._set_all_moment_status("TRASH")).grid(row=9, column=0, **btn_pad)
         ttk.Button(action_rail, text="Keep Top N", command=self._keep_top_n_moments).grid(row=9, column=1, **btn_pad)
 
+        ttk.Separator(action_rail, orient="horizontal").grid(row=10, column=0, columnspan=2, sticky="ew", padx=4, pady=4)
+        self.export_topn_btn = ttk.Button(
+            action_rail, text="Export Top N Clips", command=self._export_top_n_clips
+        )
+        self.export_topn_btn.grid(row=11, column=0, columnspan=2, **btn_pad)
+
         ttk.Label(outer, textvariable=self.footage_status_var, style="Muted.TLabel").pack(anchor="w", pady=(6, 0))
 
     def _refresh_processed_versions(self):
@@ -2053,6 +2059,162 @@ class SilenceCutterApp(tk.Tk):
         self._save_footage_index()
         label = "ALL" if top_value == "ALL" else str(top_n)
         self.footage_status_var.set(f"KEEP: marked {label} ranked moments • saved")
+
+    @staticmethod
+    def _topn_category_names(mode):
+        display = re.sub(r"\s+", " ", str(mode or "Moments")).strip() or "Moments"
+        display = display.replace(" / ", " ").replace("/", " ")
+        display = display.replace("-", " ")
+        display = re.sub(r"\s+", " ", display).strip()
+        slug = safe_slug(display)
+        return display, slug
+
+    @staticmethod
+    def _topn_source_stem(video):
+        stem = Path(video).stem
+        # A processed source such as Julian_01_LOW should produce
+        # Julian_01_Funniest_01 rather than baking the cut preset into every clip.
+        return re.sub(
+            r"_(?:LOW|40|MEDIUM|HIGH|CONVERSATION)$",
+            "",
+            stem,
+            flags=re.I,
+        ) or stem
+
+    def _clip_srt_rows(self, moment):
+        rows = []
+        clip_start = float(moment.start)
+        clip_end = float(moment.end)
+        for entry in self.footage_entries:
+            start = max(float(entry.start), clip_start)
+            end = min(float(entry.end), clip_end)
+            if end <= start:
+                continue
+            text = f"{entry.speaker}: {entry.text}" if entry.speaker else entry.text
+            rows.append((start - clip_start, end - clip_start, text))
+        return rows
+
+    def _export_top_n_clips(self):
+        if not self.footage_moments:
+            messagebox.showinfo(APP_TITLE, "Analyze moments first.")
+            return
+        video = Path(self.footage_video_var.get()).expanduser()
+        if not video.is_file():
+            messagebox.showerror(APP_TITLE, "The current footage video could not be found.")
+            return
+        if not self.ffmpeg:
+            messagebox.showerror(APP_TITLE, "FFmpeg is required to export clips.")
+            return
+
+        raw_top = self.footage_top_var.get().strip().upper()
+        if raw_top == "ALL":
+            top_n = len(self.footage_moments)
+        else:
+            try:
+                top_n = max(1, min(int(raw_top), len(self.footage_moments)))
+            except ValueError:
+                messagebox.showerror(APP_TITLE, "Top count must be a number, or ALL.")
+                return
+
+        moments = list(self.footage_moments[:top_n])
+        mode_display, mode_slug = self._topn_category_names(self.footage_mode_var.get())
+        folder_label = f"Top {top_n} {mode_display}" if raw_top != "ALL" else f"All {mode_display}"
+        folder_slug = re.sub(r'[<>:"/\\|?*]+', "_", folder_label).strip(" .") or "Top Clips"
+
+        if self.project:
+            base_dir = self.project.folder("exports/clips")
+        else:
+            base_dir = video.parent
+        out_dir = base_dir / folder_slug
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        source_stem = self._topn_source_stem(video)
+        try:
+            settings = self._settings()
+            video_args = list(self._video_args(settings))
+            audio_bitrate = settings["audio"]
+        except Exception:
+            video_args = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p"]
+            audio_bitrate = "192k"
+
+        jobs = []
+        for rank, moment in enumerate(moments, 1):
+            base = f"{source_stem}_{mode_slug}_{rank:02d}"
+            jobs.append((
+                rank,
+                moment,
+                out_dir / f"{base}.mp4",
+                out_dir / f"{base}.srt",
+                self._clip_srt_rows(moment),
+            ))
+
+        self.export_topn_btn.configure(state="disabled")
+        self.footage_status_var.set(
+            f"Exporting {len(jobs)} clip(s) to {out_dir.name}…"
+        )
+
+        def worker():
+            completed = 0
+            try:
+                for rank, moment, clip_path, srt_path, srt_rows in jobs:
+                    if self.cancel_event.is_set():
+                        raise InterruptedError
+                    duration = max(0.05, float(moment.end) - float(moment.start))
+                    partial = clip_path.with_suffix(".part.mp4")
+                    try:
+                        if partial.exists():
+                            partial.unlink()
+                    except OSError:
+                        pass
+                    cmd = [
+                        str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
+                        "-ss", f"{float(moment.start):.4f}",
+                        "-t", f"{duration:.4f}",
+                        "-i", str(video),
+                        "-map", "0:v:0", "-map", "0:a:0?",
+                        *video_args,
+                        "-c:a", "aac", "-b:a", audio_bitrate,
+                        "-movflags", "+faststart",
+                        str(partial),
+                    ]
+                    proc = subprocess.run(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        creationflags=self._creationflags(),
+                    )
+                    if proc.returncode != 0:
+                        try:
+                            if partial.exists():
+                                partial.unlink()
+                        except OSError:
+                            pass
+                        raise RuntimeError(
+                            f"Clip {rank} failed:\n" + (proc.stderr or "")[-1800:]
+                        )
+                    os.replace(partial, clip_path)
+                    if srt_rows:
+                        self._write_srt_entries(srt_path, srt_rows)
+                    completed += 1
+                    self.events.put((
+                        "topn_progress",
+                        completed,
+                        len(jobs),
+                        mode_display,
+                    ))
+                self.events.put((
+                    "topn_done",
+                    str(out_dir),
+                    completed,
+                    mode_display,
+                ))
+            except InterruptedError:
+                self.events.put(("topn_cancelled", completed, len(jobs)))
+            except Exception as exc:
+                self.events.put(("topn_error", str(exc), completed, len(jobs)))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _edit_selected_moment(self):
         moment = self._selected_footage_moment()
@@ -5685,6 +5847,45 @@ Which brings me to Kaelen and something called Soul Tear.
                     self.sequence_progress["value"] = pct
                     self.sequence_progress_var.set(f"{pct:.0f}% • {label}")
                     self.sequence_status_var.set(label)
+
+                elif kind == "topn_progress":
+                    done, total, mode = e[1], e[2], e[3]
+                    self.footage_status_var.set(
+                        f"Exporting Top {total} {mode}: {done}/{total} clip(s) finished."
+                    )
+
+                elif kind == "topn_done":
+                    folder, count, mode = Path(e[1]), e[2], e[3]
+                    if hasattr(self, "export_topn_btn"):
+                        self.export_topn_btn.configure(state="normal")
+                    self.footage_status_var.set(
+                        f"Exported {count} {mode} clip(s) → {folder.name}"
+                    )
+                    self.log.insert(
+                        "end",
+                        f"\nTop-N clip export complete: {count} clip(s)\nFolder: {folder}\n"
+                    )
+                    self.log.see("end")
+                    try:
+                        if os.name == "nt":
+                            os.startfile(str(folder))
+                    except Exception:
+                        pass
+
+                elif kind == "topn_cancelled":
+                    if hasattr(self, "export_topn_btn"):
+                        self.export_topn_btn.configure(state="normal")
+                    self.footage_status_var.set(
+                        f"Top-N clip export cancelled after {e[1]}/{e[2]} clip(s)."
+                    )
+
+                elif kind == "topn_error":
+                    if hasattr(self, "export_topn_btn"):
+                        self.export_topn_btn.configure(state="normal")
+                    self.footage_status_var.set(
+                        f"Top-N clip export stopped after {e[2]}/{e[3]} clip(s)."
+                    )
+                    messagebox.showerror(APP_TITLE, e[1])
 
                 elif kind == "sequence_done":
                     out = Path(e[1])
