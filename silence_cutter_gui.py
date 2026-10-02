@@ -4824,7 +4824,9 @@ Which brings me to Kaelen and something called Soul Tear.
             if not self._disk_preflight(out.parent, result["temp_need"]):
                 return
 
-            self._cleanup_temp_dirs(out.parent, older_than_seconds=0)
+            # Only clean genuinely stale temp folders; never delete a temp
+            # workspace that another running Silence Slicer instance may own.
+            self._cleanup_temp_dirs(out.parent, older_than_seconds=24 * 60 * 60)
             self.events.put(("log", f"Audio smoothing: {s['audio_smoothing_name']} ({int(s['audio_smoothing']*1000)} ms)\n"))
             self._render(inp, out, result["keeps"], s, result["new_duration"])
         except Exception as exc:
@@ -5072,7 +5074,6 @@ Which brings me to Kaelen and something called Soul Tear.
                 "finished", out, actual, str(srt_path) if srt_path else "", srt_mode or "",
                 s["variant"], s["auto_srt"],
             ))
-            self._save_preferences()
         except InterruptedError:
             self.events.put(("cancelled",))
         except Exception as exc:
@@ -5081,41 +5082,63 @@ Which brings me to Kaelen and something called Soul Tear.
     def _render_direct(self, inp, out, keeps, s, total_out_duration):
         # Pause before starting if requested.
         self._wait_if_paused("Paused before render")
-        filtergraph = build_filtergraph(keeps, audio_fade=s["audio_smoothing"])
-        cmd = [
-            str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
-            "-i", str(inp), "-filter_complex", filtergraph,
-            "-map", "[outv]", "-map", "[outa]",
-            *self._video_args(s),
-            "-c:a", "aac", "-b:a", s["audio"],
-            "-movflags", "+faststart",
-            "-progress", "pipe:1", "-nostats",
-            str(out),
-        ]
-        try:
-            self._run_ffmpeg_progress(cmd, total_out_duration, 0, 100, "Rendering")
-        except FFmpegRunError as exc:
-            if not self._is_recoverable_decode_error(exc.stderr_text):
-                raise
-            self.events.put(("log", "Source contains damaged media packets. Retrying render in tolerant decode mode…\n"))
-            try:
-                if out.exists():
-                    out.unlink()
-            except Exception:
-                pass
-            retry_cmd = [
+        out.parent.mkdir(parents=True, exist_ok=True)
+
+        # Keep both the long filtergraph and the in-progress video out of the
+        # Windows command line / final filename.  The completed file is promoted
+        # to its real name only after FFmpeg exits successfully.
+        with tempfile.TemporaryDirectory(dir=out.parent, prefix=TEMP_PREFIX) as tmpname:
+            tmp = Path(tmpname)
+            script = tmp / "filter.txt"
+            script.write_text(
+                build_filtergraph(keeps, audio_fade=s["audio_smoothing"]),
+                encoding="utf-8",
+            )
+            partial = tmp / (out.name if out.suffix else out.name + ".mp4")
+
+            cmd = [
                 str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
-                *self._tolerant_input_args(),
-                "-i", str(inp), "-filter_complex", filtergraph,
+                "-i", str(inp), "-filter_complex_script", str(script),
                 "-map", "[outv]", "-map", "[outa]",
                 *self._video_args(s),
                 "-c:a", "aac", "-b:a", s["audio"],
                 "-movflags", "+faststart",
                 "-progress", "pipe:1", "-nostats",
-                str(out),
+                str(partial),
             ]
-            self._run_ffmpeg_progress(retry_cmd, total_out_duration, 0, 100, "Rendering (repair retry)")
-            self.events.put(("log", "Recovered from damaged input packets; render completed in tolerant mode.\n"))
+            try:
+                self._run_ffmpeg_progress(cmd, total_out_duration, 0, 100, "Rendering")
+            except FFmpegRunError as exc:
+                if not self._is_recoverable_decode_error(exc.stderr_text):
+                    raise
+                self.events.put(("log", "Source contains damaged media packets. Retrying render in tolerant decode mode…\n"))
+                try:
+                    if partial.exists():
+                        partial.unlink()
+                except Exception:
+                    pass
+                retry_cmd = [
+                    str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
+                    *self._tolerant_input_args(),
+                    "-i", str(inp), "-filter_complex_script", str(script),
+                    "-map", "[outv]", "-map", "[outa]",
+                    *self._video_args(s),
+                    "-c:a", "aac", "-b:a", s["audio"],
+                    "-movflags", "+faststart",
+                    "-progress", "pipe:1", "-nostats",
+                    str(partial),
+                ]
+                self._run_ffmpeg_progress(
+                    retry_cmd, total_out_duration, 0, 100,
+                    "Rendering (repair retry)"
+                )
+                self.events.put(("log", "Recovered from damaged input packets; render completed in tolerant mode.\n"))
+
+            if self.cancel_event.is_set():
+                raise InterruptedError
+            if not partial.is_file() or partial.stat().st_size <= 0:
+                raise RuntimeError("FFmpeg finished without producing a usable output file.")
+            os.replace(partial, out)
 
     @staticmethod
     def _is_recoverable_decode_error(stderr_text):
@@ -5167,6 +5190,8 @@ Which brings me to Kaelen and something called Soul Tear.
                     fade_first=(idx > 1),
                     fade_last=(idx < len(batches)),
                 )
+                filter_script = tmp / f"filter_{idx:04d}.txt"
+                filter_script.write_text(filtergraph, encoding="utf-8")
 
                 part = tmp / f"part_{idx:04d}.mkv"
                 self.events.put(("log", f"Chunk {idx}/{len(batches)}  {fmt_time(window_start)} -> {fmt_time(window_end)}  ({len(batch)} clips)\n"))
@@ -5175,7 +5200,7 @@ Which brings me to Kaelen and something called Soul Tear.
                     str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
                     "-ss", f"{window_start:.4f}", "-t", f"{window_end-window_start+0.5:.4f}",
                     "-i", str(inp),
-                    "-filter_complex", filtergraph,
+                    "-filter_complex_script", str(filter_script),
                     "-map", "[outv]", "-map", "[outa]",
                     *self._video_args(s),
                     "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
@@ -5207,7 +5232,7 @@ Which brings me to Kaelen and something called Soul Tear.
                         *self._tolerant_input_args(),
                         "-ss", f"{window_start:.4f}", "-t", f"{window_end-window_start+0.5:.4f}",
                         "-i", str(inp),
-                        "-filter_complex", filtergraph,
+                        "-filter_complex_script", str(filter_script),
                         "-map", "[outv]", "-map", "[outa]",
                         *self._video_args(s),
                         "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
@@ -5237,6 +5262,7 @@ Which brings me to Kaelen and something called Soul Tear.
                     f.write(f"file '{safe}'\n")
 
             self.events.put(("log", "Joining chunks and encoding final audio…\n"))
+            joined = tmp / (out.name if out.suffix else out.name + ".mp4")
             cmd = [
                 str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
                 "-f", "concat", "-safe", "0", "-i", str(listing),
@@ -5244,9 +5270,14 @@ Which brings me to Kaelen and something called Soul Tear.
                 "-c:a", "aac", "-b:a", s["audio"],
                 "-movflags", "+faststart",
                 "-progress", "pipe:1", "-nostats",
-                str(out),
+                str(joined),
             ]
             self._run_ffmpeg_progress(cmd, total_out_duration, 90, 100, "Joining")
+            if self.cancel_event.is_set():
+                raise InterruptedError
+            if not joined.is_file() or joined.stat().st_size <= 0:
+                raise RuntimeError("FFmpeg finished without producing a usable joined output file.")
+            os.replace(joined, out)
 
     def _run_ffmpeg_progress(self, cmd, duration, pct_start, pct_end, phase):
         proc = subprocess.Popen(
