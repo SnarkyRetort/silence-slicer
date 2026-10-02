@@ -198,7 +198,7 @@ def render_direct(path, out_path, keeps, args):
         cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-stats", "-y",
             "-i", str(path),
-            "-/filter_complex", str(script),
+            "-filter_complex_script", str(script),
             "-map", "[outv]", "-map", "[outa]",
             *video_args(args),
             "-c:a", "aac", "-b:a", args.audio_bitrate,
@@ -231,7 +231,7 @@ def render_chunked(path, out_path, keeps, args):
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-stats", "-y",
                 "-ss", f"{window_start:.4f}", "-t", f"{window_end - window_start + 0.5:.4f}",
                 "-i", str(path),
-                "-/filter_complex", str(script),
+                "-filter_complex_script", str(script),
                 "-map", "[outv]", "-map", "[outa]",
                 *video_args(args),
                 "-c:a", "flac",
@@ -363,7 +363,7 @@ def main():
         if not path.is_file():
             die(f"File not found: {path}")
         out_path = Path(args.output).expanduser() if args.output else \
-            path.with_name(f"{path.stem}_trimmed{path.suffix or '.mp4'}")
+            path.with_name(f"{path.stem}_trimmed.mp4")
         if out_path.resolve() == path.resolve():
             die("Output would overwrite the input file. Choose a different -o name.")
         process(path, out_path, args)
