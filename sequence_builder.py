@@ -669,7 +669,10 @@ def render_assembly(
                     "-c:a", "aac", "-b:a", "192k", "-shortest",
                     "-movflags", "+faststart", str(seg),
                 ]
-            proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, check=False,
+                creationflags=_creationflags(),
+            )
             if proc.returncode != 0:
                 raise SequenceError(proc.stderr.strip() or f"FFmpeg failed while rendering clip {idx}.")
             if progress:
@@ -685,7 +688,10 @@ def render_assembly(
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
             "-c", "copy", "-movflags", "+faststart", str(out),
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        proc = subprocess.run(
+                cmd, capture_output=True, text=True, check=False,
+                creationflags=_creationflags(),
+            )
         if proc.returncode != 0:
             raise SequenceError(proc.stderr.strip() or "FFmpeg failed while joining the sequence.")
         if progress:
