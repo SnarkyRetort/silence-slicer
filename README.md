@@ -6,7 +6,7 @@ Silence Slicer is a Windows desktop video workflow tool for turning long recordi
 
 - -50 / -40 / -30 / -27 Conversation / -25 dB silence-cut presets
 - FFmpeg-based video processing and preview
-- Source-SRT routing and automatic subtitle remapping for processed cuts
+- Processed-video transcription: cut RAW footage first, then transcribe only the cleaned working video
 - Optional local `faster-whisper` transcription when no source SRT is available
 - Ranked footage analysis with KEEP / MAYBE / TRASH review
 - Sequence Builder for assembling selected moments
@@ -97,6 +97,21 @@ python silence_cutter_gui.py
 ```
 
 Once Python, the requirements, and FFmpeg are available, the program can be moved to another folder or drive and used normally. Your videos and project folders can live on any drive with enough free space.
+
+## Project workflow
+
+Silence Slicer's project pipeline is intentionally one-way so video and subtitle timing cannot be mixed between stages:
+
+```text
+RAW recording
+    -> silence-cut processed video (working / "meat" source)
+    -> matching SRT transcribed from that processed video
+    -> Footage Analysis using that exact video/SRT pair
+    -> Top-N category folders (Funniest, Emotional, Arguments, Character-Defining, etc.)
+       containing matching MP4 + clip-retimed SRT pairs
+```
+
+The normal project workflow does not transcribe RAW footage. Footage Analysis accepts registered processed project versions and their exact registered SRTs; category exports derive from the currently loaded processed pair.
 
 ## Project files
 
