@@ -5208,6 +5208,32 @@ Which brings me to Kaelen and something called Soul Tear.
             pass
 
     # ---------- rendering ----------
+    def _filter_complex_args(self, filtergraph, script_path):
+        """Use a filter script when this FFmpeg supports it; otherwise fall back
+        to the broadly compatible inline -filter_complex form."""
+        support = getattr(self, "_filter_complex_script_supported", None)
+        if support is None:
+            support = False
+            try:
+                probe = subprocess.run(
+                    [str(self.ffmpeg), "-hide_banner", "-h", "full"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    errors="replace",
+                    creationflags=self._creationflags(),
+                    timeout=15,
+                )
+                support = "filter_complex_script" in (probe.stdout or "")
+            except Exception:
+                support = False
+            self._filter_complex_script_supported = support
+
+        if support:
+            Path(script_path).write_text(filtergraph, encoding="utf-8")
+            return ["-filter_complex_script", str(script_path)]
+        return ["-filter_complex", filtergraph]
+
     def _video_args(self, s):
         q = str(s["crf"])
         if s["encoder"] == "nvenc":
@@ -5259,15 +5285,13 @@ Which brings me to Kaelen and something called Soul Tear.
         with tempfile.TemporaryDirectory(dir=out.parent, prefix=TEMP_PREFIX) as tmpname:
             tmp = Path(tmpname)
             script = tmp / "filter.txt"
-            script.write_text(
-                build_filtergraph(keeps, audio_fade=s["audio_smoothing"]),
-                encoding="utf-8",
-            )
+            filtergraph = build_filtergraph(keeps, audio_fade=s["audio_smoothing"])
+            filter_args = self._filter_complex_args(filtergraph, script)
             partial = tmp / (out.name if out.suffix else out.name + ".mp4")
 
             cmd = [
                 str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
-                "-i", str(inp), "-filter_complex_script", str(script),
+                "-i", str(inp), *filter_args,
                 "-map", "[outv]", "-map", "[outa]",
                 *self._video_args(s),
                 "-c:a", "aac", "-b:a", s["audio"],
@@ -5289,7 +5313,7 @@ Which brings me to Kaelen and something called Soul Tear.
                 retry_cmd = [
                     str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
                     *self._tolerant_input_args(),
-                    "-i", str(inp), "-filter_complex_script", str(script),
+                    "-i", str(inp), *filter_args,
                     "-map", "[outv]", "-map", "[outa]",
                     *self._video_args(s),
                     "-c:a", "aac", "-b:a", s["audio"],
@@ -5360,7 +5384,7 @@ Which brings me to Kaelen and something called Soul Tear.
                     fade_last=(idx < len(batches)),
                 )
                 filter_script = tmp / f"filter_{idx:04d}.txt"
-                filter_script.write_text(filtergraph, encoding="utf-8")
+                filter_args = self._filter_complex_args(filtergraph, filter_script)
 
                 part = tmp / f"part_{idx:04d}.mkv"
                 self.events.put(("log", f"Chunk {idx}/{len(batches)}  {fmt_time(window_start)} -> {fmt_time(window_end)}  ({len(batch)} clips)\n"))
@@ -5369,7 +5393,7 @@ Which brings me to Kaelen and something called Soul Tear.
                     str(self.ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
                     "-ss", f"{window_start:.4f}", "-t", f"{window_end-window_start+0.5:.4f}",
                     "-i", str(inp),
-                    "-filter_complex_script", str(filter_script),
+                    *filter_args,
                     "-map", "[outv]", "-map", "[outa]",
                     *self._video_args(s),
                     "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
@@ -5401,7 +5425,7 @@ Which brings me to Kaelen and something called Soul Tear.
                         *self._tolerant_input_args(),
                         "-ss", f"{window_start:.4f}", "-t", f"{window_end-window_start+0.5:.4f}",
                         "-i", str(inp),
-                        "-filter_complex_script", str(filter_script),
+                        *filter_args,
                         "-map", "[outv]", "-map", "[outa]",
                         *self._video_args(s),
                         "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
