@@ -571,10 +571,19 @@ class SilenceCutterApp(tk.Tk):
         strength = ttk.LabelFrame(outer, text="Cut Strength")
         strength.pack(fill="x", pady=(10, 0))
         ttk.Label(strength, text="How ruthless should the cutter be?", style="Big.TLabel").pack(side="left", padx=(10, 22), pady=8)
+        preset_labels = {
+            "Low": "-50 dB",
+            "Medium": "-30 dB",
+            "High": "-25 dB",
+            "Conversation": "-27 dB (Conversation)",
+        }
         for name in ("Low", "Medium", "High", "Conversation"):
             ttk.Radiobutton(
-                strength, text=name, value=name, variable=self.cut_strength,
-                command=lambda n=name: self._apply_builtin_preset(n)
+                strength,
+                text=preset_labels[name],
+                value=name,
+                variable=self.cut_strength,
+                command=lambda n=name: self._apply_builtin_preset(n),
             ).pack(side="left", padx=10)
 
         creative = ttk.LabelFrame(outer, text="Cut Controls")
