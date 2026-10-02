@@ -91,6 +91,21 @@ def run_ffmpeg(cmd, what):
         die(f"ffmpeg failed while {what} (see message above).")
 
 
+def filter_complex_args(filtergraph, script_path):
+    """Use a filter script if supported; otherwise use inline -filter_complex."""
+    try:
+        probe = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-h", "full"],
+            capture_output=True, text=True, errors="replace", timeout=15,
+        )
+        if "filter_complex_script" in ((probe.stdout or "") + (probe.stderr or "")):
+            Path(script_path).write_text(filtergraph, encoding="utf-8")
+            return ["-filter_complex_script", str(script_path)]
+    except Exception:
+        pass
+    return ["-filter_complex", filtergraph]
+
+
 # --------------------------------------------------------------------------- detection
 
 def detect_silences(path, threshold_db, min_silence, duration):
@@ -194,11 +209,12 @@ def render_direct(path, out_path, keeps, args):
     """Single ffmpeg pass. Used when there are only a handful of clips."""
     with tempfile.TemporaryDirectory() as tmp:
         script = Path(tmp) / "filter.txt"
-        script.write_text(build_filter_script(keeps), encoding="utf-8")
+        graph = build_filter_script(keeps)
+        filter_args = filter_complex_args(graph, script)
         cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-stats", "-y",
             "-i", str(path),
-            "-filter_complex_script", str(script),
+            *filter_args,
             "-map", "[outv]", "-map", "[outa]",
             *video_args(args),
             "-c:a", "aac", "-b:a", args.audio_bitrate,
@@ -223,7 +239,8 @@ def render_chunked(path, out_path, keeps, args):
         for i, batch in enumerate(batches, 1):
             window_start, window_end = batch[0][0], batch[-1][1]
             script = tmp / f"filter_{i:04d}.txt"
-            script.write_text(build_filter_script(batch, offset=window_start), encoding="utf-8")
+            graph = build_filter_script(batch, offset=window_start)
+            filter_args = filter_complex_args(graph, script)
             part = tmp / f"part_{i:04d}.mkv"
             print(f"  Chunk {i}/{len(batches)}  ({fmt_time(window_start)} -> {fmt_time(window_end)}, "
                   f"{len(batch)} clips)")
@@ -231,7 +248,7 @@ def render_chunked(path, out_path, keeps, args):
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-stats", "-y",
                 "-ss", f"{window_start:.4f}", "-t", f"{window_end - window_start + 0.5:.4f}",
                 "-i", str(path),
-                "-filter_complex_script", str(script),
+                *filter_args,
                 "-map", "[outv]", "-map", "[outa]",
                 *video_args(args),
                 "-c:a", "flac",
