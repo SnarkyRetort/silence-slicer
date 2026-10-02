@@ -5055,27 +5055,6 @@ Which brings me to Kaelen and something called Soul Tear.
         path.write_text("\n".join(lines), encoding="utf-8")
         return path
 
-    def _remap_source_srt_to_cut(self, source_srt, keeps, dest_srt):
-        entries = fa.parse_srt(source_srt)
-        remapped = []
-        output_base = 0.0
-        for keep_start, keep_end in keeps:
-            keep_start = float(keep_start)
-            keep_end = float(keep_end)
-            for entry in entries:
-                overlap_start = max(float(entry.start), keep_start)
-                overlap_end = min(float(entry.end), keep_end)
-                if overlap_end <= overlap_start:
-                    continue
-                new_start = output_base + (overlap_start - keep_start)
-                new_end = output_base + (overlap_end - keep_start)
-                text = f"{entry.speaker}: {entry.text}" if entry.speaker else entry.text
-                remapped.append((new_start, new_end, text))
-            output_base += max(0.0, keep_end - keep_start)
-        if not remapped:
-            raise RuntimeError("The source SRT had no subtitle lines inside the kept clips.")
-        return self._write_srt_entries(dest_srt, remapped)
-
     def _cuda_cublas_path(self):
         """Return CUDA 12 cuBLAS when Windows can actually see it."""
         candidates = []
