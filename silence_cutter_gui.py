@@ -555,10 +555,10 @@ class SilenceCutterApp(tk.Tk):
 
         self.notebook.add(project_tab, text="Project")
         self.notebook.add(cut_tab, text="Cut & Analyze")
-        self.notebook.add(narration_tab, text="Narration / TTS")
         self.notebook.add(footage_tab, text="Footage Analysis")
-        self.notebook.add(crossref_tab, text="Story Crossrefs")
         self.notebook.add(sequence_tab, text="Sequence Builder")
+        self.notebook.add(narration_tab, text="Narration / TTS")
+        self.notebook.add(crossref_tab, text="Story Crossrefs")
         self.notebook.add(review_tab, text="Review & Export")
 
         outer = ttk.Frame(cut_tab)
