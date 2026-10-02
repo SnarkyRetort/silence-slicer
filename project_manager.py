@@ -299,7 +299,13 @@ def open_project(path: str | Path) -> ProjectWorkspace:
     manifest = path / PROJECT_FILE if path.is_dir() else path
     if not manifest.is_file():
         raise ProjectError("Choose a Silence Slicer project folder or project.json.")
-    data = json.loads(manifest.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProjectError(
+            f"Could not read this Silence Slicer project file: {manifest.name}. "
+            "The file may be damaged or incomplete."
+        ) from exc
     if not isinstance(data, dict):
         raise ProjectError("Unsupported or invalid Silence Slicer project file.")
     # In-place migration from the original project schema.
@@ -324,4 +330,7 @@ def open_project(path: str | Path) -> ProjectWorkspace:
         (root / Path(folder)).mkdir(parents=True, exist_ok=True)
     ws = ProjectWorkspace(root, data)
     ws.save()
-    return flatten_duplicate_project_root(ws)
+    # Opening a project must never move files implicitly.  Older builds attempted
+    # to flatten ProjectName/ProjectName here, which could relocate unrelated
+    # project contents or leave a half-moved workspace after an interrupted move.
+    return ws
