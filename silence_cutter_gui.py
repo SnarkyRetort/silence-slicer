@@ -4779,23 +4779,78 @@ Which brings me to Kaelen and something called Soul Tear.
             raise RuntimeError("The source SRT had no subtitle lines inside the kept clips.")
         return self._write_srt_entries(dest_srt, remapped)
 
+    def _cuda_cublas_path(self):
+        """Return CUDA 12 cuBLAS when Windows can actually see it."""
+        candidates = []
+        found = shutil.which("cublas64_12.dll")
+        if found:
+            candidates.append(Path(found))
+
+        for env_name in ("CUDA_PATH", "CUDA_HOME"):
+            raw = os.environ.get(env_name, "").strip()
+            if raw:
+                candidates.append(Path(raw) / "bin" / "cublas64_12.dll")
+
+        if os.name == "nt":
+            root = Path(r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA")
+            if root.is_dir():
+                candidates.extend(sorted(root.glob("v12*/bin/cublas64_12.dll"), reverse=True))
+
+        for candidate in candidates:
+            try:
+                if candidate.is_file():
+                    return candidate.resolve()
+            except OSError:
+                pass
+        return None
+
     def _transcribe_with_faster_whisper(self, video_path, dest_srt):
         try:
             from faster_whisper import WhisperModel
         except Exception:
+            self.events.put(("log", "faster-whisper is not installed; automatic speech transcription is unavailable.\n"))
             return None
 
         self.events.put(("phase", "Transcribing final cut for SRT…"))
         self.events.put(("log", "No SOURCE SRT found; using local faster-whisper to build the processed SRT.\n"))
-        # base.en is intentionally modest: useful accuracy without turning an hour-long
-        # Skyrim recording into a giant GPU/VRAM job. CPU int8 keeps compatibility broad.
-        model = WhisperModel("base.en", device="cpu", compute_type="int8")
-        segments, _info = model.transcribe(str(video_path), language="en", vad_filter=True)
+
+        cublas = self._cuda_cublas_path()
         rows = []
-        for seg in segments:
-            text = str(getattr(seg, "text", "")).strip()
-            if text:
-                rows.append((float(seg.start), float(seg.end), text))
+
+        def run_model(device, compute_type):
+            model = WhisperModel("base.en", device=device, compute_type=compute_type)
+            segments, _info = model.transcribe(
+                str(video_path), language="en", vad_filter=True
+            )
+            result = []
+            for seg in segments:
+                text = str(getattr(seg, "text", "")).strip()
+                if text:
+                    result.append((float(seg.start), float(seg.end), text))
+            return result
+
+        if cublas:
+            self.events.put(("log", f"CUDA 12 cuBLAS found: {cublas}\n"))
+            self.events.put(("log", "Trying faster-whisper on the NVIDIA GPU (CUDA / float16)…\n"))
+            try:
+                rows = run_model("cuda", "float16")
+                self.events.put(("log", "GPU transcription completed successfully.\n"))
+            except Exception as exc:
+                self.events.put((
+                    "log",
+                    "GPU transcription could not start; falling back to CPU int8. "
+                    f"CUDA error: {exc}\n"
+                ))
+        else:
+            self.events.put((
+                "log",
+                "CUDA 12 cuBLAS was not found; using optimized CPU int8 transcription.\n"
+            ))
+
+        if not rows:
+            self.events.put(("log", "Running faster-whisper on CPU int8…\n"))
+            rows = run_model("cpu", "int8")
+
         if not rows:
             raise RuntimeError("Speech transcription returned no subtitle lines.")
         return self._write_srt_entries(dest_srt, rows)
