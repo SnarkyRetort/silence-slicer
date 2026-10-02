@@ -2863,9 +2863,90 @@ class SilenceCutterApp(tk.Tk):
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc))
 
-    def _sequence_export_fcpxml(self):
+    def _resolve_preflight(self):
+        """Return a human-readable Resolve package preflight and hard errors."""
         if not self.sequence_items:
-            messagebox.showinfo(APP_TITLE, "The sequence is empty.")
+            return "", ["The sequence is empty."]
+
+        missing = sorted({
+            str(Path(item.source_video))
+            for item in self.sequence_items
+            if not Path(item.source_video).is_file()
+        })
+        errors = []
+        if missing:
+            errors.append(
+                "Missing source media:\n" + "\n".join(missing[:10])
+            )
+
+        unique_sources = []
+        seen = set()
+        for item in self.sequence_items:
+            try:
+                p = Path(item.source_video).resolve()
+            except OSError:
+                p = Path(item.source_video)
+            key = str(p).casefold()
+            if key not in seen:
+                seen.add(key)
+                unique_sources.append(p)
+
+        source_labels = []
+        if self.project:
+            reverse = {}
+            original = self.project.absolute_path("source")
+            if original:
+                try:
+                    reverse[str(original.resolve()).casefold()] = "ORIGINAL"
+                except OSError:
+                    pass
+            for label, video in self.project.processed_variants().items():
+                try:
+                    reverse[str(Path(video).resolve()).casefold()] = label.upper()
+                except OSError:
+                    pass
+            for p in unique_sources:
+                source_labels.append(reverse.get(str(p).casefold(), "EXTERNAL"))
+
+        width, height = self._sequence_output_geometry()
+        total = sum(max(0.0, item.end - item.start) for item in self.sequence_items)
+        lines = [
+            f"Sequence: {self.sequence_name_var.get()}",
+            f"Clips: {len(self.sequence_items)}",
+            f"Duration: {fa.seconds_to_clock(total)}",
+            f"Source files: {len(unique_sources)}",
+            f"Timeline: {width}x{height} @ {self.sequence_fps_var.get()} fps",
+        ]
+        if source_labels:
+            labels = ", ".join(sorted(set(source_labels)))
+            lines.append(f"Project source versions: {labels}")
+
+            active = str(self.project.data.get("active_processed") or "").upper() if self.project else ""
+            if active and set(source_labels) == {"ORIGINAL"}:
+                lines.append(
+                    f"WARNING: project active version is {active}, but every sequence clip references ORIGINAL."
+                )
+            elif active and any(label not in (active, "EXTERNAL") for label in source_labels):
+                lines.append(
+                    f"WARNING: active project version is {active}, but the sequence also references: "
+                    + ", ".join(sorted({x for x in source_labels if x not in (active, "EXTERNAL")}))
+                )
+
+        lines.append("All source media will be copied into the Resolve package.")
+        return "\n".join(lines), errors
+
+    def _sequence_export_fcpxml(self):
+        preflight, errors = self._resolve_preflight()
+        if errors:
+            messagebox.showerror(
+                APP_TITLE,
+                "Resolve Package Preflight FAILED\n\n" + "\n\n".join(errors)
+            )
+            return
+        if not messagebox.askokcancel(
+            "Resolve Package Preflight",
+            preflight + "\n\nExport this Resolve package?"
+        ):
             return
 
         if self.project:
