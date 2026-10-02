@@ -4,7 +4,7 @@ Silence Slicer is a Windows desktop video workflow tool for turning long recordi
 
 ## Highlights
 
-- Low / Medium / High / Conversation silence-cut presets
+- -50 / -40 / -30 / -27 Conversation / -25 dB silence-cut presets
 - FFmpeg-based video processing and preview
 - Source-SRT routing and automatic subtitle remapping for processed cuts
 - Optional local `faster-whisper` transcription when no source SRT is available
@@ -119,4 +119,4 @@ The public repository intentionally excludes local media, subtitles, transcripts
 
 ## License
 
-A project license has not been selected yet. Until one is added, normal copyright rules apply to the source code. FFmpeg is a separate project and has its own licensing terms.
+Silence Slicer is released under the MIT License; see `LICENSE`. FFmpeg is a separate project and has its own licensing terms.
