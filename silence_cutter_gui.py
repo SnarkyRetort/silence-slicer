@@ -390,6 +390,7 @@ class SilenceCutterApp(tk.Tk):
         self.footage_query_var = tk.StringVar(value="")
         self.footage_search_var = tk.StringVar(value="")
         self.footage_status_var = tk.StringVar(value="Load a cleaned video and its matching SRT.")
+        self.footage_pair_var = tk.StringVar(value="No footage pair loaded.")
         self.footage_entries = []
         self.footage_moments = []
         self.footage_video_duration = None
@@ -1321,6 +1322,9 @@ class SilenceCutterApp(tk.Tk):
         ttk.Button(source, text="Browse…", command=self._browse_footage_srt).grid(row=2, column=2, padx=8, pady=6)
         self.footage_load_btn = ttk.Button(source, text="Load Footage Map", command=self._load_footage_map)
         self.footage_load_btn.grid(row=0, column=3, rowspan=3, padx=8, pady=6, sticky="ns")
+        ttk.Label(
+            source, textvariable=self.footage_pair_var, style="Big.TLabel"
+        ).grid(row=3, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 7))
         source.columnconfigure(1, weight=1)
 
         controls = ttk.LabelFrame(outer, text="Find Best Moments")
@@ -1530,12 +1534,12 @@ class SilenceCutterApp(tk.Tk):
             self.footage_index_path = self.project.footage_index_path(video)
         if srt and srt.exists():
             self.footage_srt_var.set(str(srt))
+            self.footage_pair_var.set(f"✓ {label}: video and matching SRT are paired.")
         else:
-            # If this project/version has no registered SRT, keep the user's
-            # previously browsed matching SRT instead of blanking it on startup.
-            saved_srt = Path(self.footage_srt_var.get()).expanduser() if self.footage_srt_var.get().strip() else None
-            if saved_srt is not None and not saved_srt.is_file():
-                self.footage_srt_var.set("")
+            # Project versions are strict: never carry an SRT from a different
+            # cut into the newly selected video.
+            self.footage_srt_var.set("")
+            self.footage_pair_var.set(f"⚠ {label}: video is selected, but no matching SRT is registered.")
         if update_status:
             self.footage_status_var.set(f"Project version selected: {label}")
 
@@ -1613,6 +1617,13 @@ class SilenceCutterApp(tk.Tk):
                         self.footage_status_var.set(
                             f"Matched {Path(path).name} to processed version {label}."
                         )
+                        self.footage_pair_var.set(
+                            f"✓ {label}: video and matching SRT are paired."
+                        )
+                elif not matches:
+                    self.footage_pair_var.set(
+                        "⚠ Could not identify which project version this SRT belongs to."
+                    )
 
             self._save_preferences()
 
@@ -1648,6 +1659,9 @@ class SilenceCutterApp(tk.Tk):
                     )
 
             entries = fa.parse_srt(srt)
+            self.footage_pair_var.set(
+                f"✓ Confirmed pair: {video.name} + {srt.name}"
+            )
             duration, has_video, _has_audio = self._probe(video)
             if not has_video:
                 raise RuntimeError("The selected footage file does not contain a video stream.")
