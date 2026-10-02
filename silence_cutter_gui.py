@@ -80,6 +80,13 @@ CUT_PRESETS = {
         "min_clip": 0.10,
         "audio_smoothing": "Light",
     },
+    "40": {
+        "threshold": -40.0,
+        "min_silence": 1.65,
+        "padding": 0.28,
+        "min_clip": 0.10,
+        "audio_smoothing": "Light",
+    },
     "Medium": {
         "threshold": -30.0,
         "min_silence": 1.5,
@@ -573,11 +580,12 @@ class SilenceCutterApp(tk.Tk):
         ttk.Label(strength, text="How ruthless should the cutter be?", style="Big.TLabel").pack(side="left", padx=(10, 22), pady=8)
         preset_labels = {
             "Low": "-50 dB",
+            "40": "-40 dB",
             "Medium": "-30 dB",
             "High": "-25 dB",
             "Conversation": "-27 dB (Conversation)",
         }
-        for name in ("Low", "Medium", "High", "Conversation"):
+        for name in ("Low", "40", "Medium", "High", "Conversation"):
             ttk.Radiobutton(
                 strength,
                 text=preset_labels[name],
