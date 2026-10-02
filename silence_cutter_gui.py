@@ -1188,11 +1188,8 @@ class SilenceCutterApp(tk.Tk):
         if srt and srt.exists():
             self.footage_srt_var.set(str(srt))
         else:
-            # If this project/version has no registered SRT, keep the user's
-            # previously browsed matching SRT instead of blanking it on startup.
-            saved_srt = Path(self.footage_srt_var.get()).expanduser() if self.footage_srt_var.get().strip() else None
-            if saved_srt is not None and not saved_srt.is_file():
-                self.footage_srt_var.set("")
+            # Never carry an SRT across projects or processed versions.
+            self.footage_srt_var.set("")
         if index:
             self.footage_index_path = index
         if sequence:
@@ -1246,17 +1243,36 @@ class SilenceCutterApp(tk.Tk):
             project = self._require_project()
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc)); return
-        path = filedialog.askopenfilename(title="Import matching SRT", filetypes=[("SubRip subtitles", "*.srt")])
+
+        # Project transcripts belong to processed "meat" versions only.  The raw
+        # recording is deliberately never transcribed/imported as the working SRT.
+        active = (project.data.get("active_processed") or "").strip().upper()
+        processed = project.processed_for(active) if active else None
+        if not active or not processed or not Path(processed).is_file():
+            messagebox.showinfo(
+                APP_TITLE,
+                "Make the silence-cut working video first.\n\n"
+                "SRTs are attached to the processed 'meat' video, not the raw recording."
+            )
+            return
+
+        path = filedialog.askopenfilename(
+            title=f"Import matching SRT for {active}",
+            filetypes=[("SubRip subtitles", "*.srt")]
+        )
         if not path:
             return
         try:
-            active = self.footage_version_var.get() or project.data.get("active_processed")
-            variant = active or "SOURCE"
-            actual = project.import_transcript(path, variant=variant, copy_into_project=True)
+            actual = project.import_transcript(path, variant=active, copy_into_project=True)
+            self.footage_version_var.set(active)
+            self.footage_video_var.set(str(processed))
             self.footage_srt_var.set(str(actual))
             self._refresh_project_display()
+            self._refresh_processed_versions()
             self._save_preferences()
-            self.project_status_var.set("SRT imported into the project transcript folder.")
+            self.project_status_var.set(
+                f"Matching SRT attached to processed working version {active}."
+            )
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc))
 
@@ -1511,9 +1527,9 @@ class SilenceCutterApp(tk.Tk):
             return
         values = []
         if self.project:
+            # Footage Analysis operates on processed working ("meat") versions.
+            # RAW/ORIGINAL intentionally does not appear here.
             values = sorted(self.project.processed_variants().keys())
-            if self.project.absolute_path("source"):
-                values = ["ORIGINAL"] + values
         self.footage_version_combo["values"] = tuple(values)
         current = self.footage_version_var.get()
         if current not in values:
@@ -1532,11 +1548,12 @@ class SilenceCutterApp(tk.Tk):
         if not label:
             return
         if label == "ORIGINAL":
-            video = self.project.absolute_path("source")
-            srt = self.project.srt_for("SOURCE")
-        else:
-            video = self.project.processed_variants().get(label)
-            srt = self.project.srt_for(label)
+            self.footage_video_var.set("")
+            self.footage_srt_var.set("")
+            self.footage_pair_var.set("⚠ RAW footage is not a Footage Analysis source. Make/select a processed cut.")
+            return
+        video = self.project.processed_variants().get(label)
+        srt = self.project.srt_for(label)
         if video:
             self.footage_video_var.set(str(video))
             self.footage_index_path = self.project.footage_index_path(video)
@@ -1644,23 +1661,42 @@ class SilenceCutterApp(tk.Tk):
             if not srt.is_file():
                 raise RuntimeError("Choose the matching SRT file first.")
 
-            # Refuse the common project-version mismatch that can create a
-            # perfectly valid-looking timeline against the wrong source media.
+            # Strict working-pair gate: Footage Analysis may only consume a
+            # registered processed video and the SRT registered to that exact version.
             if self.project:
                 selected = self.footage_version_var.get().strip().upper()
+                variants = self.project.processed_variants()
+                if not selected or selected == "ORIGINAL" or selected not in variants:
+                    raise RuntimeError(
+                        "Footage Analysis requires a processed working video. "
+                        "Make/select the silence-cut 'meat' version first."
+                    )
+                expected_video = Path(variants[selected]).expanduser().resolve()
+                expected_srt = self.project.srt_for(selected)
+                if video.resolve() != expected_video:
+                    raise RuntimeError(
+                        f"Project version {selected} is registered to:\n{expected_video}\n\n"
+                        f"But Footage Analysis is pointing at:\n{video.resolve()}\n\n"
+                        "Select the registered processed version instead of mixing sources."
+                    )
+                if not expected_srt or not Path(expected_srt).is_file():
+                    raise RuntimeError(
+                        f"Processed version {selected} has no matching SRT yet. "
+                        "Transcribe/import the processed video first."
+                    )
+                if srt.resolve() != Path(expected_srt).expanduser().resolve():
+                    raise RuntimeError(
+                        f"The selected SRT is not the SRT registered to processed version {selected}. "
+                        "Use the matching processed-video/SRT pair."
+                    )
+
                 stem = srt.stem.upper()
-                variant_names = [v.upper() for v in self.project.processed_variants().keys()]
+                variant_names = [v.upper() for v in variants.keys()]
                 named = [
                     v for v in variant_names
                     if re.search(rf"(?:^|[_\-\s]){re.escape(v)}(?:$|[_\-\s])", stem)
                 ]
-                if selected == "ORIGINAL" and named:
-                    raise RuntimeError(
-                        f"This transcript appears to be for the {named[0]} processed video, "
-                        "but Project version is ORIGINAL. Select the matching processed "
-                        "version before loading the footage map."
-                    )
-                if selected not in ("", "ORIGINAL") and named and selected not in named:
+                if named and selected not in named:
                     raise RuntimeError(
                         f"This transcript appears to be for {named[0]}, but Project version "
                         f"is {selected}. Choose the matching video/SRT pair."
@@ -5073,7 +5109,7 @@ Which brings me to Kaelen and something called Soul Tear.
             return None
 
         self.events.put(("phase", "Transcribing final cut for SRT…"))
-        self.events.put(("log", "No SOURCE SRT found; using local faster-whisper to build the processed SRT.\n"))
+        self.events.put(("log", "Transcribing the finished processed video; RAW footage is skipped.\n"))
 
         cublas = self._cuda_cublas_path()
         rows = []
@@ -5139,14 +5175,6 @@ Which brings me to Kaelen and something called Soul Tear.
                 pass
             return path
 
-        # Best path: remap the SOURCE transcript. It's fast, so always rebuild —
-        # a re-render with different settings must never keep stale timing.
-        source_srt = self.project.srt_for("SOURCE")
-        if source_srt and source_srt.is_file():
-            self.events.put(("phase", "Building cut-aware SRT…"))
-            self.events.put(("log", f"Remapping SOURCE SRT to {label} cut timing…\n"))
-            return mark_fresh(self._remap_source_srt_to_cut(source_srt, keeps, dest)), "remapped"
-
         # Reuse this variant's own SRT only if it was made for this exact cut.
         existing = self.project.srt_for(label)
         if existing and existing.is_file() and existing.stat().st_size > 0:
@@ -5158,8 +5186,8 @@ Which brings me to Kaelen and something called Soul Tear.
                 return existing, "existing"
             self.events.put(("log", f"Existing {label} SRT was made for a different cut; rebuilding it.\n"))
 
-        # No source transcript: use an already-installed local speech-to-text
-        # backend. We deliberately do not auto-install packages or fabricate captions.
+        # The processed output is the transcription source.  RAW is never sent
+        # through Whisper as part of the normal project workflow.
         made = self._transcribe_with_faster_whisper(out, dest)
         if made:
             return mark_fresh(made), "transcribed"
@@ -5758,10 +5786,9 @@ Which brings me to Kaelen and something called Soul Tear.
                             self.project_srt_display_var.set(str(actual_srt))
                             self._refresh_project_display()
                             mode_text = {
-                                "remapped": "cut-aware SOURCE SRT",
-                                "transcribed": "local speech transcription",
-                                "existing": "existing project SRT",
-                            }.get(srt_mode, "automatic SRT")
+                                "transcribed": "processed-video speech transcription",
+                                "existing": "existing matching processed SRT",
+                            }.get(srt_mode, "automatic processed-video SRT")
                             self.log.insert("end", f"SRT ready ({mode_text}): {actual_srt}\n")
                             self.project_status_var.set(f"Processed video + matching SRT ready: {label}")
                             self.footage_status_var.set(f"Matching {label} SRT is ready. Load Footage Map to analyze it.")
@@ -5770,8 +5797,8 @@ Which brings me to Kaelen and something called Soul Tear.
                             self.log.insert("end", f"Project SRT registration warning: {exc}\n")
                     elif job_auto_srt and self.project:
                         if srt_mode == "no_backend":
-                            self.log.insert("end", "SRT not created: import a SOURCE SRT once, or install faster-whisper for automatic local transcription.\n")
-                            self.project_status_var.set("Video ready. SRT needs a SOURCE transcript or local faster-whisper.")
+                            self.log.insert("end", "SRT not created: install faster-whisper or import an SRT that matches this processed video.\n")
+                            self.project_status_var.set("Processed video ready. Matching SRT still needed.")
                         elif srt_mode == "error":
                             self.project_status_var.set("Video ready. Automatic SRT hit an error; see Review & Export log.")
 
